@@ -1,0 +1,64 @@
+# File: task-apic-validate-product-definition.yml
+# Task: Cette tâche teste la définition de Produit
+
+parameters:
+  # Définition de Produit : nom de la définition tel que configuré au niveau global du pipeline
+  - name: CICD_WORK_DEF_NAME
+    type: string
+  # Définition de Produit : nom du fichier contenant la définition
+  - name: CICD_WORK_DEF_FILE
+    type: string
+  # Définition de Produit : nom de la définition tel que lu à partir du fichier de la définition
+  - name: CICD_WORK_DATA_NAME
+    type: string
+  # Définition de Produit : titre de la définition tel que lu à partir du fichier de la définition
+  - name: CICD_WORK_DATA_TITLE
+    type: string
+  # Définition de Produit : version SemVer MAJOR.MINOR.PATCH de la définition tel que lu à partir du fichier de la définition
+  - name: CICD_WORK_DATA_SEMVER
+    type: string
+  # Définition de Produit : version SemVer MAJOR de la définition tel que lu à partir du fichier de la définition
+  - name: CICD_WORK_DATA_SEMVER_MAJOR
+    type: string
+
+steps:
+  - task: Bash@3
+    displayName: "Validation de la définition de Produit"
+    inputs:
+      targetType: "inline"
+      script: |
+        echo "Validation de la définition de Produit..."
+
+        echo "CICD_WORK_DEF_NAME: ${CICD_WORK_DEF_NAME}"
+        echo "CICD_WORK_DEF_FILE: ${CICD_WORK_DEF_FILE}"
+        echo "CICD_WORK_DATA_NAME: ${CICD_WORK_DATA_NAME}"
+        echo "CICD_WORK_DATA_TITLE: ${CICD_WORK_DATA_TITLE}"
+        echo "CICD_WORK_DATA_SEMVER: ${CICD_WORK_DATA_SEMVER}"
+        echo "CICD_WORK_DATA_SEMVER_MAJOR: ${CICD_WORK_DATA_SEMVER_MAJOR}"
+
+        echo "ToDo: Vérification de la syntaxe :"
+        echo "ToDo: Vérification de la définition OpenAPI :"
+
+        # validate YAML file with apic
+        echo "Vérification avec outil apic validate :"
+        apic validate --no-extensions --product-only "${CICD_WORK_DEF_FILE}"
+        apic validate --no-extensions                "${CICD_WORK_DEF_FILE}"
+
+        echo "ToDo: Vérification pour les propriétés obligatoires :"
+        if [ "${CICD_WORK_DEF_NAME}" != "${CICD_WORK_DATA_NAME}" ]; then
+          echo "##vso[task.logissue type=error]Les variables CICD_WORK_DEF_NAME et CICD_WORK_DATA_NAME ne sont pas égales."
+        fi
+
+        echo "ToDo: Vérification pour les propriétés interdites :"
+        echo "      - x-ibm-configuration: properties: target-url: value:"
+        echo "ToDo: Vérification de conformité :"
+        
+        echo "Validation de la définition de Produit."
+      failOnStderr: true
+    env:
+      CICD_WORK_DEF_NAME: ${{ parameters['CICD_WORK_DEF_NAME'] }}
+      CICD_WORK_DEF_FILE: ${{ parameters['CICD_WORK_DEF_FILE'] }}
+      CICD_WORK_DATA_NAME: ${{ parameters['CICD_WORK_DATA_NAME'] }}
+      CICD_WORK_DATA_TITLE: ${{ parameters['CICD_WORK_DATA_TITLE'] }}
+      CICD_WORK_DATA_SEMVER: ${{ parameters['CICD_WORK_DATA_SEMVER'] }}
+      CICD_WORK_DATA_SEMVER_MAJOR: ${{ parameters['CICD_WORK_DATA_SEMVER_MAJOR'] }}

@@ -1,0 +1,4 @@
+type: 'catalog'
+name: 'org-acme-cat-dev'
+title: 'Développement'
+summary: 'Catalogue Développement de l''organisation ACME'

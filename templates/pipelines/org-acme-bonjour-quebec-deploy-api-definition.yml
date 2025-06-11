@@ -1,0 +1,30 @@
+# File: org-acme-bonjour-quebec-deploy-api-definition.yml
+# Pipeline: Ce pipeline build et déploie les définitions d'API et de Product du projet
+# Help: https://learn.microsoft.com/en-us/azure/devops/pipelines/get-started/key-pipelines-concepts?view=azure-devops
+
+# Set build number format in semver
+name: $(Date:yyyy).$(Date:MMdd).$(DayOfYear)$(Rev:rr)
+
+# Set triggers
+trigger:
+  branches:
+    include:
+      - refs/heads/main
+      - refs/tags/v*
+  paths:
+    exclude:
+      - '**/*.yml'
+
+# Set pools
+pool: Default
+
+# Set stages
+# https://learn.microsoft.com/en-us/azure/devops/pipelines/process/phases?view=azure-devops&tabs=yaml#workspace
+extends:
+  template: /templates/pipelines/pipeline-deploy-project-definitions.yml
+  parameters:
+    CICD_WORK_DEF_PREFIX: 'org-acme-bonjour-quebec'
+    CICD_WORK_ENV_PREFIX: 'org-acme-env'
+    CICD_WORK_STAGES:
+      - 'op-dev'
+      - 'op-acc'

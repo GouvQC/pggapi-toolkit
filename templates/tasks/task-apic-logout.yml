@@ -1,0 +1,19 @@
+# File: task-apic-logout.yml
+# Task: Cette tâche déconnecte l'outil en ligne de commande apic auprès du serveur IBM API Connect Manager.
+
+parameters:
+  # URL de la composante API Connect Manager
+  - name: CICD_APIC_MANAGER_URL
+    type: string
+
+steps:
+  - task: Bash@3
+    displayName: "Déconnection du serveur IBM API Connect Manager"
+    condition: succeededOrFailed()
+    inputs:
+      targetType: "inline"
+      script: |
+        apic --server "${CICD_APIC_MANAGER_URL}" logout
+      failOnStderr: true
+    env:
+      CICD_APIC_MANAGER_URL: ${{ parameters['CICD_APIC_MANAGER_URL'] }}

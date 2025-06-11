@@ -1,0 +1,127 @@
+# File: job-deploy-project-definitions.yml
+# Job: Cette tâche déploie l'artefact des définitions d'API et de Produit
+# Help: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/phases?view=azure-devops&tabs=yaml
+
+parameters:
+  # ID de l'environnement cible
+  - name: CICD_WORKFLOW_ENVIRONMENT_ID
+    type: string
+  # Nom de l'environnement cible
+  - name: CICD_WORKFLOW_ENVIRONMENT_NAME
+    type: string
+  # Nom source des définitions d'API
+  - name: CICD_WORK_DEF_API_NAME
+    type: string
+  # Nom du fichier source des définitions d'API
+  - name: CICD_WORK_DEF_API_FILE
+    type: string
+  # Nom du fichier en ligne des définitions d'API téléchargés à partir de l'instance
+  - name: CICD_LIVE_DEF_API_FILE
+    type: string
+  # Nom source des définitions de Produit
+  - name: CICD_WORK_DEF_PRODUCT_NAME
+    type: string
+  # Nom du fichier source des définitions de Produit
+  - name: CICD_WORK_DEF_PRODUCT_FILE
+    type: string
+  # Nom du fichier en ligne des définitions de Produit téléchargés à partir de l'instance
+  - name: CICD_LIVE_DEF_PRODUCT_FILE
+    type: string
+  # URL de la composante API Connect Manager
+  - name: CICD_APIC_MANAGER_URL
+    type: string
+  # Clé API de IBM IAM
+  - name: CICD_APIC_IAM_APIKEY
+    type: string
+  # Nom de la ressource type Organisation pour récupèrer les objets
+  - name: CICD_APIC_RESSOURCE_ORGANIZATION_NAME
+    type: string
+  # Nom de la ressource type Catalogue pour récupèrer les objets
+  - name: CICD_APIC_RESSOURCE_CATALOG_NAME
+    type: string
+  # Nom de la ressource type Espace pour récupèrer les objets
+  - name: CICD_APIC_RESSOURCE_SPACE_NAME
+    type: string
+
+jobs:
+  - deployment: DeployProjectDefinitions_${{ parameters['CICD_WORKFLOW_ENVIRONMENT_ID'] }}
+    displayName: "Déploiement des définitions API et Produit (${{ parameters['CICD_WORKFLOW_ENVIRONMENT_ID'] }})"
+    environment: ${{ parameters['CICD_WORKFLOW_ENVIRONMENT_NAME'] }}
+    workspace:
+      clean: all
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+            - template: /templates/tasks/task-tool-read-semver.yml
+              parameters:
+                CICD_READ_SEM_FILE: ${{ parameters['CICD_WORK_DEF_API_FILE'] }}
+                CICD_READ_SEM_CONF:
+                  readname:
+                    regex: '.info."x-ibm-name"'
+                    variable: 'CICD_WORK_READ_API_NAME'
+                  readtitle:
+                    regex: '.info.title'
+                    variable: 'CICD_WORK_READ_API_TITLE'
+                  readsemver:
+                    regex: '.info.version'
+                    variable: 'CICD_WORK_READ_API_SEMVER'
+                  readsemvermaj:
+                    regex: ''
+                    variable: 'CICD_WORK_READ_API_SEMVER_MAJOR'
+            - template: /templates/tasks/task-tool-read-semver.yml
+              parameters:
+                CICD_READ_SEM_FILE: ${{ parameters['CICD_WORK_DEF_PRODUCT_FILE'] }}
+                CICD_READ_SEM_CONF:
+                  readname:
+                    regex: '.info.name'
+                    variable: 'CICD_WORK_READ_PRODUCT_NAME'
+                  readtitle:
+                    regex: '.info.title'
+                    variable: 'CICD_WORK_READ_PRODUCT_TITLE'
+                  readsemver:
+                    regex: '.info.version'
+                    variable: 'CICD_WORK_READ_PRODUCT_SEMVER'
+                  readsemvermaj:
+                    regex: ''
+                    variable: 'CICD_WORK_READ_PRODUCT_SEMVER_MAJOR'
+            - template: /templates/tasks/task-apic-configure.yml
+            - template: /templates/tasks/task-apic-login.yml
+              parameters:
+                CICD_APIC_MANAGER_URL: ${{ parameters['CICD_APIC_MANAGER_URL'] }}
+                CICD_APIC_IAM_APIKEY: ${{ parameters['CICD_APIC_IAM_APIKEY'] }}
+            - template: /templates/tasks/task-apic-list-objects.yml
+              parameters:
+                CICD_APIC_MANAGER_URL: ${{ parameters['CICD_APIC_MANAGER_URL'] }}
+                CICD_APIC_RESSOURCE_ORGANIZATION_NAME: ${{ parameters['CICD_APIC_RESSOURCE_ORGANIZATION_NAME'] }}
+                CICD_APIC_RESSOURCE_CATALOG_NAME: ${{ parameters['CICD_APIC_RESSOURCE_CATALOG_NAME'] }}
+                CICD_APIC_RESSOURCE_SPACE_NAME: ${{ parameters['CICD_APIC_RESSOURCE_SPACE_NAME'] }}
+                CICD_WORK_DEF_TYPE: 'apis'
+                CICD_WORK_DEF_NAME: ${{ parameters['CICD_WORK_DEF_API_NAME'] }}
+                CICD_LIVE_DEF_FILE: ${{ parameters['CICD_LIVE_DEF_API_FILE'] }}
+            - template: /templates/tasks/task-apic-list-objects.yml
+              parameters:
+                CICD_APIC_MANAGER_URL: ${{ parameters['CICD_APIC_MANAGER_URL'] }}
+                CICD_APIC_RESSOURCE_ORGANIZATION_NAME: ${{ parameters['CICD_APIC_RESSOURCE_ORGANIZATION_NAME'] }}
+                CICD_APIC_RESSOURCE_CATALOG_NAME: ${{ parameters['CICD_APIC_RESSOURCE_CATALOG_NAME'] }}
+                CICD_APIC_RESSOURCE_SPACE_NAME: ${{ parameters['CICD_APIC_RESSOURCE_SPACE_NAME'] }}
+                CICD_WORK_DEF_TYPE: 'products'
+                CICD_WORK_DEF_NAME: ${{ parameters['CICD_WORK_DEF_PRODUCT_NAME'] }}
+                CICD_LIVE_DEF_FILE: ${{ parameters['CICD_LIVE_DEF_PRODUCT_FILE'] }}
+            - template: /templates/tasks/task-apic-deploy-project-definitions.yml
+              parameters:
+                CICD_APIC_MANAGER_URL: ${{ parameters['CICD_APIC_MANAGER_URL'] }}
+                CICD_APIC_RESSOURCE_ORGANIZATION_NAME: ${{ parameters['CICD_APIC_RESSOURCE_ORGANIZATION_NAME'] }}
+                CICD_APIC_RESSOURCE_CATALOG_NAME: ${{ parameters['CICD_APIC_RESSOURCE_CATALOG_NAME'] }}
+                CICD_APIC_RESSOURCE_SPACE_NAME: ${{ parameters['CICD_APIC_RESSOURCE_SPACE_NAME'] }}
+                CICD_WORK_DATA_API_NAME: "$(CICD_WORK_READ_API_NAME)"
+                CICD_WORK_DATA_API_FILE: ${{ parameters['CICD_WORK_DEF_API_FILE'] }}
+                CICD_WORK_DATA_API_SEMVER: "$(CICD_WORK_READ_API_SEMVER)"
+                CICD_WORK_DATA_API_SEMVER_MAJOR: "$(CICD_WORK_READ_API_SEMVER_MAJOR)"
+                CICD_WORK_DATA_PRODUCT_NAME: "$(CICD_WORK_READ_PRODUCT_NAME)"
+                CICD_WORK_DATA_PRODUCT_FILE: ${{ parameters['CICD_WORK_DEF_PRODUCT_FILE'] }}
+                CICD_WORK_DATA_PRODUCT_SEMVER: "$(CICD_WORK_READ_PRODUCT_SEMVER)"
+                CICD_WORK_DATA_PRODUCT_SEMVER_MAJOR: "$(CICD_WORK_READ_PRODUCT_SEMVER_MAJOR)"
+            - template: /templates/tasks/task-apic-logout.yml
+              parameters:
+                CICD_APIC_MANAGER_URL: ${{ parameters['CICD_APIC_MANAGER_URL'] }}

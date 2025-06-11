@@ -1,0 +1,39 @@
+# File: task-apic-configure.yml
+# Task: Cette tâche récupère et configure l'outil en ligne de commande apic
+
+parameters:
+  # Lien de téléchargement de l'outil apic correspondant à l'instance utilisé
+  - name: CICD_TOOL_APIC_LINK
+    type: string
+    default: "https://api-manager.us-east-a.apiconnect.automation.ibm.com/client-downloads/toolkit-linux.tgz"
+  # Chemin cible pour déposer le binaire apic
+  - name: CICD_TOOL_APIC_PATH
+    type: string
+    default: "$(Agent.ToolsDirectory)/ibm-toolkit-linux"
+
+steps:
+  - task: Bash@3
+    displayName: "Configuration de l'outil apic"
+    inputs:
+      targetType: "inline"
+      script: |
+        curl -s -D - --output "$(Agent.TempDirectory)/toolkit-linux.tgz" --http1.1 -X GET --url "${CICD_TOOL_APIC_LINK}"
+        tar -zxf "$(Agent.TempDirectory)/toolkit-linux.tgz"
+        chmod a+x apic
+        mkdir -p "${CICD_TOOL_APIC_PATH}"
+        cp -vpf apic "${CICD_TOOL_APIC_PATH}/apic"
+
+        # Prepend a path to the PATH environment variable
+        echo "##vso[task.prependpath]${CICD_TOOL_APIC_PATH}"
+      failOnStderr: true
+    env:
+      CICD_TOOL_APIC_LINK: ${{ parameters['CICD_TOOL_APIC_LINK'] }}
+      CICD_TOOL_APIC_PATH: ${{ parameters['CICD_TOOL_APIC_PATH'] }}
+
+  - task: Bash@3
+    displayName: "Affichage de la version apic et acceptation de la licence"
+    inputs:
+      targetType: "inline"
+      script: |
+        apic --accept-license --live-help=false
+        apic version

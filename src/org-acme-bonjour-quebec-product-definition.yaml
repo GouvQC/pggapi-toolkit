@@ -1,0 +1,32 @@
+product: 1.0.0
+info:
+  description: Ceci est un API d'exemple basé sur la spécification OpenAPI 3.0 dont le nom est Bonjour Québec.
+  version: 1.0.1
+  title: Définition de Produit Bonjour Québec
+  name: org-acme-bonjour-quebec-product-definition
+gateways:
+  - datapower-api-gateway
+plans:
+  org-acme-bonjour-quebec-plan-default-definition:
+    title: Plan Consommation Bonjour Québec
+    description: Plan de consommation par défaut pour l'API Bonjour Québec.
+    approval: false
+    rate-limits:
+      default:
+        value: 500/1hour
+    apis:
+      org-acme-bonjour-quebec-api-definition_1.0.0: {}
+apis:
+  org-acme-bonjour-quebec-api-definition_1.0.0:
+    $ref: org-acme-bonjour-quebec-api-definition.yaml
+visibility:
+  view:
+    type: public
+    orgs: []
+    tags: []
+    enabled: true
+  subscribe:
+    type: authenticated
+    orgs: []
+    tags: []
+    enabled: true

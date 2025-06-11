@@ -1,0 +1,46 @@
+type: 'catalog_setting'
+name: 'catalog-setting'
+production_mode: true
+portal:
+  type: 'none'
+product_lifecycle_approvals:
+  - 'published'
+  - 'deprecated'
+  - 'retired'
+  - 'replace'
+  - 'supersede'
+task_self_approval: false
+allowed_product_visibility:
+  view:
+    type: 'public'
+    enabled: false
+  subscribe:
+    type: 'authenticated'
+    enabled: false
+application_lifecycle:
+  enabled: true
+consumer_self_service_onboarding: false
+consumer_self_service_onboarding_approval: false
+consumer_org_invitations_enabled: true
+consumer_org_invitation_roles:
+  - 'administrator'
+  - 'developer'
+  - 'viewer'
+invitation_ttl: 172800
+vanity_api_endpoint:
+  enabled: false
+  vanity_api_base_endpoints: []
+spaces_enabled: true
+custom_notification_templates_enabled: false
+email_sender:
+  custom: false
+default_catalog: false
+product_publish_validations:
+  - 'emptyPathCheck_catalogScope'
+  - 'customPolicySchema_validation'
+  - 'enhancedOAIValidation_catalogScope'
+  - 'duplicateBasePathCheck_catalogScope'
+override_invitation_ttl_for_all_consumer_orgs: false
+gateway_supported_protocols:
+  - 'https'
+  - 'wss'

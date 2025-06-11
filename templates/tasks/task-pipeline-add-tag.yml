@@ -1,0 +1,21 @@
+# File: task-pipeline-add-tag.yml
+# Task: Cette tâche ajoute une ou plusieurs balises (tag) au build
+# Help: https://learn.microsoft.com/en-us/azure/devops/pipelines/scripts/logging-commands?view=azure-devops&tabs=bash#addbuildtag-add-a-tag-to-the-build
+
+parameters:
+  # Balises (tag) à ajouter au build
+  - name: CICD_BUILD_TAGS
+    type: object
+    default: []
+
+steps:
+- ${{ each CICD_BUILD_TAG in parameters.CICD_BUILD_TAGS }}:
+  - task: Bash@3
+    displayName: "Application d'une balise (tag) au build"
+    inputs:
+      targetType: "inline"
+      script: |
+        echo "##vso[build.addbuildtag]${CICD_BUILD_TAG}"
+      failOnStderr: true
+    env:
+      CICD_BUILD_TAG: "${{ CICD_BUILD_TAG.name }}=${{ CICD_BUILD_TAG.value }}"

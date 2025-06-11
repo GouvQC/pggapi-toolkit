@@ -1,0 +1,105 @@
+# File: task-apic-deploy-project-definitions.yml
+# Task: Cette tâche déploie les définitions d'API et de Produit sur l'instance IBM API Connect Manager
+
+parameters:
+  # URL de la composante API Connect Manager
+  - name: CICD_APIC_MANAGER_URL
+    type: string
+  # Nom de la ressource type Organisation pour récupèrer les objets
+  - name: CICD_APIC_RESSOURCE_ORGANIZATION_NAME
+    type: string
+  # Nom de la ressource type Catalogue pour récupèrer les objets
+  - name: CICD_APIC_RESSOURCE_CATALOG_NAME
+    type: string
+  # Nom de la ressource type Espace pour récupèrer les objets
+  - name: CICD_APIC_RESSOURCE_SPACE_NAME
+    type: string
+  # Définition d'API : nom de la définition à déployer
+  - name: CICD_WORK_DATA_API_NAME
+    type: string
+  # Définition d'API : nom du fichier contenant la définition à déployer
+  - name: CICD_WORK_DATA_API_FILE
+    type: string
+  # Définition d'API : version SemVer MAJOR.MINOR.PATCH de la définition à déployer
+  - name: CICD_WORK_DATA_API_SEMVER
+    type: string
+  # Définition d'API : version SemVer MAJOR de la définition à déployer
+  - name: CICD_WORK_DATA_API_SEMVER_MAJOR
+    type: string
+  # Définition de Produit : nom de la définition à déployer
+  - name: CICD_WORK_DATA_PRODUCT_NAME
+    type: string
+  # Définition de Produit : nom du fichier contenant la définition à déployer
+  - name: CICD_WORK_DATA_PRODUCT_FILE
+    type: string
+  # Définition de Produit : version SemVer MAJOR.MINOR.PATCH de la définition à déployer
+  - name: CICD_WORK_DATA_PRODUCT_SEMVER
+    type: string
+  # Définition de Produit : version SemVer MAJOR de la définition à déployer
+  - name: CICD_WORK_DATA_PRODUCT_SEMVER_MAJOR
+    type: string
+
+steps:
+  - task: Bash@3
+    displayName: "Déploiement des définitions API et Produit"
+    inputs:
+      targetType: "inline"
+      script: |
+        echo "Déploiement des définitions API et Produit..."
+
+        echo "CICD_APIC_RESSOURCE_ORGANIZATION_NAME: ${CICD_APIC_RESSOURCE_ORGANIZATION_NAME}"
+        echo "CICD_APIC_RESSOURCE_CATALOG_NAME: ${CICD_APIC_RESSOURCE_CATALOG_NAME}"
+        echo "CICD_APIC_RESSOURCE_SPACE_NAME: ${CICD_APIC_RESSOURCE_SPACE_NAME}"
+        echo "---"
+
+        echo "Suppression de la version draft API ${CICD_WORK_DATA_API_NAME}:${CICD_WORK_DATA_API_SEMVER} :"
+        apic --server "${CICD_APIC_MANAGER_URL}" -o "${CICD_APIC_RESSOURCE_ORGANIZATION_NAME}" draft-apis:delete     "${CICD_WORK_DATA_API_NAME}:${CICD_WORK_DATA_API_SEMVER}"
+        echo "---"
+
+        echo "Suppression de la version draft Produit ${CICD_WORK_DATA_PRODUCT_NAME}:${CICD_WORK_DATA_PRODUCT_SEMVER} :"
+        apic --server "${CICD_APIC_MANAGER_URL}" -o "${CICD_APIC_RESSOURCE_ORGANIZATION_NAME}" draft-products:delete "${CICD_WORK_DATA_PRODUCT_NAME}:${CICD_WORK_DATA_PRODUCT_SEMVER}"
+        echo "---"
+
+        echo "Création des versions draft API et Produit ${CICD_WORK_DATA_PRODUCT_FILE} :"
+        apic --server "${CICD_APIC_MANAGER_URL}" -o "${CICD_APIC_RESSOURCE_ORGANIZATION_NAME}" draft-products:create "${CICD_WORK_DATA_PRODUCT_FILE}"
+        echo "---"
+
+        # the length of CICD_APIC_RESSOURCE_SPACE_NAME is nonzero
+        if [ -n "${CICD_APIC_RESSOURCE_SPACE_NAME}" ]; then
+          echo "Staging des API et Produit dans le Catalogue ${CICD_APIC_RESSOURCE_CATALOG_NAME} et l'Espace ${CICD_APIC_RESSOURCE_SPACE_NAME} :"
+          apic --server "${CICD_APIC_MANAGER_URL}" -o "${CICD_APIC_RESSOURCE_ORGANIZATION_NAME}" products:publish --stage --scope space --catalog "${CICD_APIC_RESSOURCE_CATALOG_NAME}" --space "${CICD_APIC_RESSOURCE_SPACE_NAME}" "${CICD_WORK_DATA_PRODUCT_FILE}"
+        else
+          echo "Staging des API et Produit dans le Catalogue ${CICD_APIC_RESSOURCE_CATALOG_NAME} :"
+          apic --server "${CICD_APIC_MANAGER_URL}" -o "${CICD_APIC_RESSOURCE_ORGANIZATION_NAME}" products:publish --stage --scope catalog --catalog "${CICD_APIC_RESSOURCE_CATALOG_NAME}" "${CICD_WORK_DATA_PRODUCT_FILE}"
+        fi
+        echo "---"
+
+        # the length of CICD_APIC_RESSOURCE_SPACE_NAME is nonzero
+        if [ -n "${CICD_APIC_RESSOURCE_SPACE_NAME}" ]; then
+          echo "Publish des API et Produit dans le Catalogue ${CICD_APIC_RESSOURCE_CATALOG_NAME} et l'Espace ${CICD_APIC_RESSOURCE_SPACE_NAME} :"
+          apic products:update "${CICD_WORK_DATA_PRODUCT_NAME}:${CICD_WORK_DATA_PRODUCT_SEMVER}" --server "${CICD_APIC_MANAGER_URL}" -o "${CICD_APIC_RESSOURCE_ORGANIZATION_NAME}" --scope space --catalog "${CICD_APIC_RESSOURCE_CATALOG_NAME}" --space "${CICD_APIC_RESSOURCE_SPACE_NAME}" - <<APICEOFSPACE
+          state: published
+        APICEOFSPACE
+        else
+          echo "Publish des API et Produit dans le Catalogue ${CICD_APIC_RESSOURCE_CATALOG_NAME} :"
+          apic products:update "${CICD_WORK_DATA_PRODUCT_NAME}:${CICD_WORK_DATA_PRODUCT_SEMVER}" --server "${CICD_APIC_MANAGER_URL}" -o "${CICD_APIC_RESSOURCE_ORGANIZATION_NAME}" --scope catalog --catalog "${CICD_APIC_RESSOURCE_CATALOG_NAME}" - <<APICEOFCATALOG
+          state: published
+        APICEOFCATALOG
+        fi
+        echo "---"
+        
+        echo "Déploiement des définitions API et Produit."
+      failOnStderr: true
+    env:
+      CICD_APIC_MANAGER_URL: ${{ parameters['CICD_APIC_MANAGER_URL'] }}
+      CICD_APIC_RESSOURCE_ORGANIZATION_NAME: ${{ parameters['CICD_APIC_RESSOURCE_ORGANIZATION_NAME'] }}
+      CICD_APIC_RESSOURCE_CATALOG_NAME: ${{ parameters['CICD_APIC_RESSOURCE_CATALOG_NAME'] }}
+      CICD_APIC_RESSOURCE_SPACE_NAME: ${{ parameters['CICD_APIC_RESSOURCE_SPACE_NAME'] }}
+      CICD_WORK_DATA_API_NAME: ${{ parameters['CICD_WORK_DATA_API_NAME'] }}
+      CICD_WORK_DATA_API_FILE: ${{ parameters['CICD_WORK_DATA_API_FILE'] }}
+      CICD_WORK_DATA_API_SEMVER: ${{ parameters['CICD_WORK_DATA_API_SEMVER'] }}
+      CICD_WORK_DATA_API_SEMVER_MAJOR: ${{ parameters['CICD_WORK_DATA_API_SEMVER_MAJOR'] }}
+      CICD_WORK_DATA_PRODUCT_NAME: ${{ parameters['CICD_WORK_DATA_PRODUCT_NAME'] }}
+      CICD_WORK_DATA_PRODUCT_FILE: ${{ parameters['CICD_WORK_DATA_PRODUCT_FILE'] }}
+      CICD_WORK_DATA_PRODUCT_SEMVER: ${{ parameters['CICD_WORK_DATA_PRODUCT_SEMVER'] }}
+      CICD_WORK_DATA_PRODUCT_SEMVER_MAJOR: ${{ parameters['CICD_WORK_DATA_PRODUCT_SEMVER_MAJOR'] }}

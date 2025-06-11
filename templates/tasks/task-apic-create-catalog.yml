@@ -1,0 +1,53 @@
+# File: task-apic-create-catalog.yml
+# Task: Cette tâche créé un catalog
+
+parameters:
+  # URL de la composante API Connect Manager
+  - name: CICD_APIC_MANAGER_URL
+    type: string
+  # Nom de la ressource type Organisation
+  - name: CICD_APIC_RESSOURCE_ORGANIZATION_NAME
+    type: string
+  # Suffixe du catalogue (dev, uat, prd)
+  - name: CICD_APIC_RESSOURCE_CATALOG_NAME_SUFFIX
+    type: string
+  # Titre du catalogue 
+  - name: CICD_APIC_RESSOURCE_CATALOG_TITLE
+    type: string
+  # Type du catalogue production ou non production
+  - name: CICD_APIC_RESSOURCE_CATALOG_TYPE_IS_PRODUCTION
+    type: boolean
+  # Dossier contenant les fichiers des configurations
+  - name: CICD_WORK_SETTINGS_DIR
+    type: string
+
+steps:
+  - task: Bash@3
+    displayName: "Création d'un catalogue"
+    inputs:
+      targetType: "inline"
+      script: |
+
+        echo "Surcharger le fichier template du catalogue..."
+        cat ${CICD_WORK_SETTINGS_DIR}/catalog-template.yaml
+        yq eval ".title=\"${CICD_APIC_RESSOURCE_CATALOG_TITLE}\" | .name = \"${CICD_APIC_RESSOURCE_ORGANIZATION_NAME}-cat-${CICD_APIC_RESSOURCE_CATALOG_NAME_SUFFIX}\"  | .summary = \"Catalogue ${CICD_APIC_RESSOURCE_CATALOG_TITLE} de l'organisation ${CICD_APIC_RESSOURCE_ORGANIZATION_NAME}\"" -i ${CICD_WORK_SETTINGS_DIR}/catalog-template.yaml
+        cat ${CICD_WORK_SETTINGS_DIR}/catalog-template.yaml
+
+        echo "Création d'un catalogue..."
+        apic catalogs:create  --org ${CICD_APIC_RESSOURCE_ORGANIZATION_NAME} --server ${CICD_APIC_MANAGER_URL}  ${CICD_WORK_SETTINGS_DIR}/catalog-template.yaml
+        if [ ${CICD_APIC_RESSOURCE_CATALOG_TYPE_IS_PRODUCTION} == true ]; then
+          echo "settings prod"
+          apic catalog-settings:update -c "${CICD_APIC_RESSOURCE_ORGANIZATION_NAME}-cat-${CICD_APIC_RESSOURCE_CATALOG_NAME_SUFFIX}" --org ${CICD_APIC_RESSOURCE_ORGANIZATION_NAME} --server ${CICD_APIC_MANAGER_URL}   ${CICD_WORK_SETTINGS_DIR}/catalog-settings-prod.yaml          
+        else
+          echo "settings no prod"
+          apic catalog-settings:update -c "${CICD_APIC_RESSOURCE_ORGANIZATION_NAME}-cat-${CICD_APIC_RESSOURCE_CATALOG_NAME_SUFFIX}" --org ${CICD_APIC_RESSOURCE_ORGANIZATION_NAME} --server ${CICD_APIC_MANAGER_URL}   ${CICD_WORK_SETTINGS_DIR}/catalog-settings-noprod.yaml
+        fi
+
+      failOnStderr: true
+    env:
+      CICD_APIC_MANAGER_URL: ${{ parameters['CICD_APIC_MANAGER_URL'] }}
+      CICD_APIC_RESSOURCE_ORGANIZATION_NAME: ${{ parameters['CICD_APIC_RESSOURCE_ORGANIZATION_NAME'] }}
+      CICD_APIC_RESSOURCE_CATALOG_NAME_SUFFIX: ${{ parameters['CICD_APIC_RESSOURCE_CATALOG_NAME_SUFFIX'] }}
+      CICD_APIC_RESSOURCE_CATALOG_TITLE: ${{ parameters['CICD_APIC_RESSOURCE_CATALOG_TITLE'] }}
+      CICD_APIC_RESSOURCE_CATALOG_TYPE_IS_PRODUCTION: ${{ parameters['CICD_APIC_RESSOURCE_CATALOG_TYPE_IS_PRODUCTION'] }}
+      CICD_WORK_SETTINGS_DIR: ${{ parameters['CICD_WORK_SETTINGS_DIR'] }}

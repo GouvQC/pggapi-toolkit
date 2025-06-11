@@ -1,0 +1,60 @@
+# File: task-apic-list-objects.yml
+# Task: Cette tâche récupère dans un fichier et affiche les objets de type API ou Produit ou Organisation à partir de l'instance IBM API Connect Manager
+
+parameters:
+  # URL de la composante API Connect Manager
+  - name: CICD_APIC_MANAGER_URL
+    type: string
+  # Nom de la ressource type Organisation pour récupèrer les objets
+  - name: CICD_APIC_RESSOURCE_ORGANIZATION_NAME
+    type: string
+  # Nom de la ressource type Catalogue pour récupèrer les objets
+  - name: CICD_APIC_RESSOURCE_CATALOG_NAME
+    type: string
+  # Nom de la ressource type Espace pour récupèrer les objets
+  - name: CICD_APIC_RESSOURCE_SPACE_NAME
+    type: string
+  # Type de la ressource/l'objet à récupèrer
+  - name: CICD_WORK_DEF_TYPE
+    type: string
+    default: "apis"
+    values:
+    - "apis"
+    - "orgs"
+    - "products"
+  # Nom de la définition à récupèrer
+  - name: CICD_WORK_DEF_NAME
+    type: string
+  # Nom du fichier pour sauvegarder les objets téléchargés à partir de l'instance
+  - name: CICD_LIVE_DEF_FILE
+    type: string
+
+steps:
+  - task: Bash@3
+    displayName: "Affichage des objets de type ${{ parameters['CICD_WORK_DEF_TYPE'] }}"
+    inputs:
+      targetType: "inline"
+      script: |
+        echo "Affichage des objets de type ${CICD_WORK_DEF_TYPE}..."
+
+        # use apis:list instead of apis:get
+        # the length of CICD_APIC_RESSOURCE_SPACE_NAME is nonzero
+        if [ -n "${CICD_APIC_RESSOURCE_SPACE_NAME}" ]; then
+          apic --server "${CICD_APIC_MANAGER_URL}" -o "${CICD_APIC_RESSOURCE_ORGANIZATION_NAME}" ${CICD_WORK_DEF_TYPE}:list --scope space --catalog "${CICD_APIC_RESSOURCE_CATALOG_NAME}" --space "${CICD_APIC_RESSOURCE_SPACE_NAME}" "${CICD_WORK_DEF_NAME}" --format yaml > "${CICD_LIVE_DEF_FILE}"
+        else
+          apic --server "${CICD_APIC_MANAGER_URL}" -o "${CICD_APIC_RESSOURCE_ORGANIZATION_NAME}" ${CICD_WORK_DEF_TYPE}:list --scope catalog --catalog "${CICD_APIC_RESSOURCE_CATALOG_NAME}" "${CICD_WORK_DEF_NAME}" --format yaml > "${CICD_LIVE_DEF_FILE}"
+        fi
+
+        echo "Affichage du contenu de fichier YAML ${CICD_LIVE_DEF_FILE} :"
+        cat "${CICD_LIVE_DEF_FILE}"
+        
+        echo "Affichage des objets de type ${CICD_WORK_DEF_TYPE}."
+      failOnStderr: true
+    env:
+      CICD_APIC_MANAGER_URL: ${{ parameters['CICD_APIC_MANAGER_URL'] }}
+      CICD_APIC_RESSOURCE_ORGANIZATION_NAME: ${{ parameters['CICD_APIC_RESSOURCE_ORGANIZATION_NAME'] }}
+      CICD_APIC_RESSOURCE_CATALOG_NAME: ${{ parameters['CICD_APIC_RESSOURCE_CATALOG_NAME'] }}
+      CICD_APIC_RESSOURCE_SPACE_NAME: ${{ parameters['CICD_APIC_RESSOURCE_SPACE_NAME'] }}
+      CICD_WORK_DEF_TYPE: ${{ parameters['CICD_WORK_DEF_TYPE'] }}
+      CICD_WORK_DEF_NAME: ${{ parameters['CICD_WORK_DEF_NAME'] }}
+      CICD_LIVE_DEF_FILE: ${{ parameters['CICD_LIVE_DEF_FILE'] }}

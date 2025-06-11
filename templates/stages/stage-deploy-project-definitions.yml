@@ -1,0 +1,37 @@
+# File: stage-deploy-project-definitions.yml
+# Stage: Cette étape déploie l'artefact des définitions d'API et de Produit
+# Help: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/phases?view=azure-devops&tabs=yaml
+
+parameters:
+  # ID de l'environnement Azure DevOps cible pour cette étape (stage)
+  - name: CICD_WORKFLOW_ENVIRONMENT_ID
+    type: string
+  # Nom de l'environnement Azure DevOps cible pour cette étape (stage)
+  - name: CICD_WORKFLOW_ENVIRONMENT_NAME
+    type: string
+  # Nom du fichier source des variables pour l'environnement Azure DevOps cible pour cette étape (stage)
+  - name: CICD_WORKFLOW_ENVIRONMENT_VARIABLES
+    type: string
+
+stages:
+  - stage: "CD_${{ parameters['CICD_WORKFLOW_ENVIRONMENT_ID'] }}"
+    displayName: "Deploiement ${{ parameters['CICD_WORKFLOW_ENVIRONMENT_ID'] }}"
+    condition: succeeded()
+    variables:
+      - template: /templates/variables/${{ parameters['CICD_WORKFLOW_ENVIRONMENT_VARIABLES'] }}
+    jobs:
+      - template: /templates/jobs/job-deploy-project-definitions.yml
+        parameters:
+          CICD_WORKFLOW_ENVIRONMENT_ID: "${{ parameters['CICD_WORKFLOW_ENVIRONMENT_ID'] }}"
+          CICD_WORKFLOW_ENVIRONMENT_NAME: "${{ parameters['CICD_WORKFLOW_ENVIRONMENT_NAME'] }}"
+          CICD_WORK_DEF_API_NAME: "$(CICD_WORK_DEF_API_NAME)"
+          CICD_WORK_DEF_API_FILE: "$(Pipeline.Workspace)/$(CICD_BUILD_ARTIFACT_NAME)/$(CICD_WORK_DEF_API_NAME).yaml"
+          CICD_LIVE_DEF_API_FILE: "$(Agent.TempDirectory)/$(CICD_WORK_DEF_API_NAME).apic.yaml"
+          CICD_WORK_DEF_PRODUCT_NAME: "$(CICD_WORK_DEF_PRODUCT_NAME)"
+          CICD_WORK_DEF_PRODUCT_FILE: "$(Pipeline.Workspace)/$(CICD_BUILD_ARTIFACT_NAME)/$(CICD_WORK_DEF_PRODUCT_NAME).yaml"
+          CICD_LIVE_DEF_PRODUCT_FILE: "$(Agent.TempDirectory)/$(CICD_WORK_DEF_PRODUCT_NAME).apic.yaml"
+          CICD_APIC_MANAGER_URL: "${{ variables['APIC_MANAGER_URL'] }}"
+          CICD_APIC_IAM_APIKEY: "$(APIC_IAM_APIKEY)"
+          CICD_APIC_RESSOURCE_ORGANIZATION_NAME: "${{ variables['APIC_RESSOURCE_ORGANIZATION_NAME'] }}"
+          CICD_APIC_RESSOURCE_CATALOG_NAME: "${{ variables['APIC_RESSOURCE_CATALOG_NAME'] }}"
+          CICD_APIC_RESSOURCE_SPACE_NAME: "${{ variables['APIC_RESSOURCE_SPACE_NAME'] }}"

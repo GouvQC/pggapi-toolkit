@@ -1,0 +1,22 @@
+# File: stage-build-project-definitions.yml
+# Stage: Cette étape crée et publie l'artefact de build pour les définitions d'API et de Produit
+# Help: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/phases?view=azure-devops&tabs=yaml
+
+parameters:
+  # ID de l'environnement cible et cette étape (stage)
+  - name: CICD_WORKFLOW_ENVIRONMENT_ID
+    type: string
+    default: "BUILD"
+
+stages:
+  - stage: "CI_${{ parameters['CICD_WORKFLOW_ENVIRONMENT_ID'] }}"
+    displayName: "Build"
+    jobs:
+      - template: /templates/jobs/job-build-project-definitions.yml
+        parameters:
+          CICD_WORK_DEF_API_NAME: "$(CICD_WORK_DEF_API_NAME)"
+          CICD_WORK_DEF_API_FILE: "$(Build.SourcesDirectory)/src/$(CICD_WORK_DEF_API_NAME).yaml"
+          CICD_WORK_DEF_PRODUCT_NAME: "$(CICD_WORK_DEF_PRODUCT_NAME)"
+          CICD_WORK_DEF_PRODUCT_FILE: "$(Build.SourcesDirectory)/src/$(CICD_WORK_DEF_PRODUCT_NAME).yaml"
+          CICD_BUILD_ARTIFACT_FILES: "$(Build.SourcesDirectory)/src/$(CICD_WORK_DEF_ALL_FILES).yaml"
+          CICD_BUILD_ARTIFACT_NAME: "$(CICD_BUILD_ARTIFACT_NAME)"

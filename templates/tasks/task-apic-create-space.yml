@@ -1,0 +1,57 @@
+# File: task-apic-create-space.yml
+# Task: Cette tâche créé un espace
+
+parameters:
+  # URL de la composante API Connect Manager
+  - name: CICD_APIC_MANAGER_URL
+    type: string
+  # Nom de la ressource type Organisation
+  - name: CICD_APIC_RESSOURCE_ORGANIZATION_NAME
+    type: string
+  # Suffixe du catalogue (dev, uat, prd)
+  - name: CICD_APIC_RESSOURCE_CATALOG_NAME_SUFFIX
+    type: string
+  # Suffice du catalogue 
+  - name: CICD_APIC_RESSOURCE_SPACE_NAME_SUFFIX
+    type: string
+  # Titre de l'espace 
+  - name: CICD_APIC_RESSOURCE_SPACE_TITLE
+    type: string
+  # Type du catalogue production ou non production
+  - name: CICD_APIC_RESSOURCE_CATALOG_TYPE_IS_PRODUCTION
+    type: boolean
+  # Dossier contenant les fichiers des configurations
+  - name: CICD_WORK_SETTINGS_DIR
+    type: string
+
+steps:
+  - task: Bash@3
+    displayName: "Création d'un espace"
+    inputs:
+      targetType: "inline"
+      script: |
+
+        echo "Surcharger le fichier template du l'espace..."
+        cat ${CICD_WORK_SETTINGS_DIR}/space-template.yaml
+        yq eval ".title=\"${CICD_APIC_RESSOURCE_SPACE_TITLE}\" | .name = \"${CICD_APIC_RESSOURCE_ORGANIZATION_NAME}-cat-${CICD_APIC_RESSOURCE_CATALOG_NAME_SUFFIX}-esp-${CICD_APIC_RESSOURCE_SPACE_NAME_SUFFIX}\"  | .summary = \"Espace ${CICD_APIC_RESSOURCE_SPACE_TITLE} du Catalogue ${CICD_APIC_RESSOURCE_ORGANIZATION_NAME}-cat-${CICD_APIC_RESSOURCE_CATALOG_NAME_SUFFIX} de l'organisation ${CICD_APIC_RESSOURCE_ORGANIZATION_NAME}\"" -i ${CICD_WORK_SETTINGS_DIR}/space-template.yaml
+        cat ${CICD_WORK_SETTINGS_DIR}/space-template.yaml
+
+        echo "Création d'un espace..."
+        apic spaces:create -c "${CICD_APIC_RESSOURCE_ORGANIZATION_NAME}-cat-${CICD_APIC_RESSOURCE_CATALOG_NAME_SUFFIX}" --org ${CICD_APIC_RESSOURCE_ORGANIZATION_NAME} --server ${CICD_APIC_MANAGER_URL}   ${CICD_WORK_SETTINGS_DIR}/space-template.yaml
+        if [ ${CICD_APIC_RESSOURCE_CATALOG_TYPE_IS_PRODUCTION} == true ]; then
+          echo "settings prod"
+          apic space-settings:update --space "${CICD_APIC_RESSOURCE_ORGANIZATION_NAME}-cat-${CICD_APIC_RESSOURCE_CATALOG_NAME_SUFFIX}-esp-${CICD_APIC_RESSOURCE_SPACE_NAME_SUFFIX}" -c "${CICD_APIC_RESSOURCE_ORGANIZATION_NAME}-cat-${CICD_APIC_RESSOURCE_CATALOG_NAME_SUFFIX}" --org ${CICD_APIC_RESSOURCE_ORGANIZATION_NAME} --server ${CICD_APIC_MANAGER_URL}   ${CICD_WORK_SETTINGS_DIR}/space-settings-prod.yaml          
+        else
+          echo "settings no prod"
+          apic space-settings:update --space "${CICD_APIC_RESSOURCE_ORGANIZATION_NAME}-cat-${CICD_APIC_RESSOURCE_CATALOG_NAME_SUFFIX}-esp-${CICD_APIC_RESSOURCE_SPACE_NAME_SUFFIX}" -c "${CICD_APIC_RESSOURCE_ORGANIZATION_NAME}-cat-${CICD_APIC_RESSOURCE_CATALOG_NAME_SUFFIX}" --org ${CICD_APIC_RESSOURCE_ORGANIZATION_NAME} --server ${CICD_APIC_MANAGER_URL}   ${CICD_WORK_SETTINGS_DIR}/space-settings-noprod.yaml
+        fi
+
+      failOnStderr: true
+    env:
+      CICD_APIC_MANAGER_URL: ${{ parameters['CICD_APIC_MANAGER_URL'] }}
+      CICD_APIC_RESSOURCE_ORGANIZATION_NAME: ${{ parameters['CICD_APIC_RESSOURCE_ORGANIZATION_NAME'] }}
+      CICD_APIC_RESSOURCE_CATALOG_NAME_SUFFIX: ${{ parameters['CICD_APIC_RESSOURCE_CATALOG_NAME_SUFFIX'] }}
+      CICD_APIC_RESSOURCE_SPACE_NAME_SUFFIX: ${{ parameters['CICD_APIC_RESSOURCE_SPACE_NAME_SUFFIX'] }}
+      CICD_APIC_RESSOURCE_SPACE_TITLE: ${{ parameters['CICD_APIC_RESSOURCE_SPACE_TITLE'] }}
+      CICD_APIC_RESSOURCE_CATALOG_TYPE_IS_PRODUCTION: ${{ parameters['CICD_APIC_RESSOURCE_CATALOG_TYPE_IS_PRODUCTION'] }}
+      CICD_WORK_SETTINGS_DIR: ${{ parameters['CICD_WORK_SETTINGS_DIR'] }}

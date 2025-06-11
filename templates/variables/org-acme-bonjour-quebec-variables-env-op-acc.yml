@@ -1,0 +1,22 @@
+# File: org-acme-bonjour-quebec-variables-env-op-acc.yml
+# Variables: Ce fichier défini les variables disponibles pour utilisation dans l'étape (stage) auquel il est attaché.
+# Help: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/variables?view=azure-devops&tabs=yaml%2Cbatch
+# Help: https://learn.microsoft.com/en-us/azure/devops/pipelines/library/variable-groups?view=azure-devops&tabs=yaml#use-a-variable-group
+
+# Set variables
+# https://learn.microsoft.com/en-us/azure/devops/pipelines/process/variables?view=azure-devops&tabs=yaml%2Cbatch
+variables:
+  # Les secrets disponibles pour utilisation dans cette étape (stage) sont définis à travers un groupe de variables
+  - group: org-acme-acg-apiadmin
+# - name: APIC_IAM_APIKEY
+#   value: "*****"
+
+  # Configuration de l'environnement cible
+  - name: APIC_MANAGER_URL
+    value: "https://api.4ef0-67e5d910.ca-tor.ri.apiconnect.cloud.ibm.com"
+  - name: APIC_RESSOURCE_ORGANIZATION_NAME
+    value: "org-acme"
+  - name: APIC_RESSOURCE_CATALOG_NAME
+    value: "org-acme-cat-acc"
+  - name: APIC_RESSOURCE_SPACE_NAME
+    value: "org-acme-cat-acc-esp-defaut"

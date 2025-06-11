@@ -1,0 +1,33 @@
+type: rest
+testable: true
+cors:
+    enabled: true
+phase: realized
+enforced: true
+gateway: datapower-api-gateway
+assembly:
+  execute:
+    - gatewayscript:
+        title: gatewayscript
+        version: 2.0.0
+        source: |-
+          // Message data
+          var _json = {};
+
+          // Message unique transation id
+          _json.transid = context.get('message.headers.x-global-transaction-id');
+
+          // Bonjour/Hello/etc.
+          var items = ["Bonjour", "Bonjour Québec", "Bonjour !", "Bonjour Québec !"];
+          var item = items[Math.floor(Math.random()*items.length)];
+          _json.message = item;
+
+          // Message send
+          context.message.body.write(_json);
+          context.set('message.status.code', 200);
+application-authentication:
+  certificate: false
+activity-log:
+  enabled: true
+  success-content: activity
+  error-content: header

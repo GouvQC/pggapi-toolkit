@@ -1,0 +1,32 @@
+# File: task-apic-login.yml
+# Task: Cette tâche authentifie l'outil en ligne de commande apic auprès du serveur IBM API Connect Manager.
+
+parameters:
+  # URL de la composante API Connect Manager
+  - name: CICD_APIC_MANAGER_URL
+    type: string
+  # Clé API de IBM IAM
+  - name: CICD_APIC_IAM_APIKEY
+    type: string
+
+steps:
+  - task: Bash@3
+    displayName: "Connexion au serveur IBM API Connect Manager"
+    inputs:
+      targetType: "inline"
+      script: |
+        apic iam-apikey --apiKey "${CICD_APIC_IAM_APIKEY}" --server "${CICD_APIC_MANAGER_URL}" --tokenendpoint iam.cloud.ibm.com
+      failOnStderr: true
+    env:
+      CICD_APIC_MANAGER_URL: ${{ parameters['CICD_APIC_MANAGER_URL'] }}
+      CICD_APIC_IAM_APIKEY: ${{ parameters['CICD_APIC_IAM_APIKEY'] }}
+
+  - task: Bash@3
+    displayName: "Affichage des objets de type Organisation"
+    inputs:
+      targetType: "inline"
+      script: |
+        apic --server "${CICD_APIC_MANAGER_URL}" orgs:list --my
+      failOnStderr: true
+    env:
+      CICD_APIC_MANAGER_URL: ${{ parameters['CICD_APIC_MANAGER_URL'] }}

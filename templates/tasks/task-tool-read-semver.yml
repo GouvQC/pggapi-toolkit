@@ -1,0 +1,88 @@
+# File: task-tool-read-semver.yml
+# Task: Lecture de la version SemVer à partir d'un fichier YAML pour les définitions d'API et de Produit
+# Help: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/set-variables-scripts?view=azure-devops&tabs=bash#levels-of-output-variables
+# Help: https://github.com/mikefarah/yq/
+
+parameters:
+  # Nom du fichier YAML contenant la définition d'API ou de Produit
+  - name: CICD_READ_SEM_FILE
+    type: string
+  # Configuration pour les tags à extraire et les noms des variables correspondantes à exporter
+  # 'api-definition'     => readname.regex: '.info."x-ibm-name"'
+  # 'product-definition' => readname.regex: '.info.name'
+  - name: CICD_READ_SEM_CONF
+    type: object
+    default:
+      readname:
+        regex: '.info."x-ibm-name"'
+        variable: 'CICD_READ_DATA_NAME'
+      readtitle:
+        regex: '.info.title'
+        variable: 'CICD_READ_DATA_TITLE'
+      readsemver:
+        regex: '.info.version'
+        variable: 'CICD_READ_DATA_SEMVER'
+      readsemvermaj:
+        regex: ''
+        variable: 'CICD_READ_DATA_SEMVER_MAJOR'
+
+steps:
+  - task: Bash@3
+    displayName: "Lecture de la version SemVer à partir d'un fichier YAML"
+    inputs:
+      targetType: "inline"
+      script: |
+        echo "Lecture de la version SemVer à partir d'un fichier YAML..."
+
+        echo "CICD_READ_SEM_FILE: ${CICD_READ_SEM_FILE}"
+
+        # test CICD_READ_SEM_CONF_* object properties
+        for OPROP in "${!CICD_READ_SEM_CONF_@}"; do
+          echo "${OPROP}: ${!OPROP}"
+
+          if [ -z "${!OPROP}" ]; then
+            echo "##vso[task.logissue type=error]La propriété ${OPROP} de l'objet CICD_READ_SEM_CONF en paramètre de ce template est manquante."
+            exit 1
+          fi
+        done
+
+        # set properties
+        CICD_READ_DATA_NAME=$(yq -r "${CICD_READ_SEM_CONF_READNAME_REGEX}" "${CICD_READ_SEM_FILE}")
+        CICD_READ_DATA_SEMVER=$(yq -r "${CICD_READ_SEM_CONF_READSEMVER_REGEX}" "${CICD_READ_SEM_FILE}")
+        CICD_READ_DATA_SEMVER_MAJOR=${CICD_READ_DATA_SEMVER%%.*}
+        CICD_READ_DATA_TITLE=$(yq -r "${CICD_READ_SEM_CONF_READTITLE_REGEX}" "${CICD_READ_SEM_FILE}")
+
+        # print properties
+        echo "CICD_READ_DATA_NAME: ${CICD_READ_DATA_NAME}"
+        echo "CICD_READ_DATA_SEMVER: ${CICD_READ_DATA_SEMVER}"
+        echo "CICD_READ_DATA_SEMVER_MAJOR: ${CICD_READ_DATA_SEMVER_MAJOR}"
+        echo "CICD_READ_DATA_TITLE: ${CICD_READ_DATA_TITLE}"
+
+        # test the length is nonzero and not equal to null
+        if [ -z "${CICD_READ_DATA_NAME}" -o -z "${CICD_READ_DATA_SEMVER}" -o -z "${CICD_READ_DATA_TITLE}" -o "${CICD_READ_DATA_NAME}" = "null" -o "${CICD_READ_DATA_SEMVER}" = "null" -o "${CICD_READ_DATA_TITLE}" = "null" ]; then
+          echo "##vso[task.logissue type=error]La longueur est égale à zéro ou égale à null pour CICD_READ_DATA_*."
+          exit 1
+        fi
+
+        # test SemVer MAJOR is not number
+        [ -n "${CICD_READ_DATA_SEMVER_MAJOR}" ] && [ "${CICD_READ_DATA_SEMVER_MAJOR}" -eq "${CICD_READ_DATA_SEMVER_MAJOR}" ] 2>/dev/null
+        if [ $? -ne 0 ]; then
+          echo "##vso[task.logissue type=error]La variable CICD_READ_DATA_SEMVER_MAJOR ne contienne pas un nombre entier."
+          exit 1
+        fi
+
+        echo "##vso[task.setvariable variable=${CICD_READ_SEM_CONF_READNAME_VARIABLE}]${CICD_READ_DATA_NAME}"
+        echo "##vso[task.setvariable variable=${CICD_READ_SEM_CONF_READSEMVER_VARIABLE}]${CICD_READ_DATA_SEMVER}"
+        echo "##vso[task.setvariable variable=${CICD_READ_SEM_CONF_READSEMVERMAJ_VARIABLE}]${CICD_READ_DATA_SEMVER_MAJOR}"
+        echo "##vso[task.setvariable variable=${CICD_READ_SEM_CONF_READTITLE_VARIABLE}]${CICD_READ_DATA_TITLE}"
+
+        echo "Lecture de la version SemVer à partir d'un fichier YAML."
+    env:
+      CICD_READ_SEM_FILE: ${{ parameters['CICD_READ_SEM_FILE'] }}
+      CICD_READ_SEM_CONF_READNAME_REGEX: ${{ parameters['CICD_READ_SEM_CONF'].readname.regex }}
+      CICD_READ_SEM_CONF_READNAME_VARIABLE: ${{ parameters['CICD_READ_SEM_CONF'].readname.variable }}
+      CICD_READ_SEM_CONF_READTITLE_REGEX: ${{ parameters['CICD_READ_SEM_CONF'].readtitle.regex }}
+      CICD_READ_SEM_CONF_READTITLE_VARIABLE: ${{ parameters['CICD_READ_SEM_CONF'].readtitle.variable }}
+      CICD_READ_SEM_CONF_READSEMVER_REGEX: ${{ parameters['CICD_READ_SEM_CONF'].readsemver.regex }}
+      CICD_READ_SEM_CONF_READSEMVER_VARIABLE: ${{ parameters['CICD_READ_SEM_CONF'].readsemver.variable }}
+      CICD_READ_SEM_CONF_READSEMVERMAJ_VARIABLE: ${{ parameters['CICD_READ_SEM_CONF'].readsemvermaj.variable }}

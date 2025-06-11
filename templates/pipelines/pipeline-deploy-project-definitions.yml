@@ -1,0 +1,57 @@
+# File: pipeline-deploy-project-definitions.yml
+# Pipeline: Ce pipeline build et déploie les définitions d'API et de Produit du projet
+# Help: https://learn.microsoft.com/en-us/azure/devops/pipelines/get-started/key-pipelines-concepts?view=azure-devops
+
+# Set triggers
+trigger: none
+
+# Set parameters
+# https://learn.microsoft.com/en-us/azure/devops/pipelines/process/runtime-parameters?view=azure-devops&tabs=script
+parameters:
+  # Nom du préfix pour les noms des templates de fichiers
+  - name: CICD_WORK_DEF_PREFIX
+    type: string
+    default: 'org-acme-bonjour-quebec'
+  # Nom du préfix pour les noms des environnements
+  - name: CICD_WORK_ENV_PREFIX
+    type: string
+    default: 'org-acme-env'
+  # Nom de l'artefact de pipeline
+  - name: CICD_BUILD_ARTIFACT_NAME
+    type: string
+    default: 'drop'
+  # Nom des stages / environnements
+  - name: CICD_WORK_STAGES
+    type: object
+    default:
+      - 'op-dev'
+      - 'op-acc'
+      - 'op-preprod'
+      - 'op-prd'
+
+# Set variables
+# https://learn.microsoft.com/en-us/azure/devops/pipelines/process/variables?view=azure-devops&tabs=yaml%2Cbatch
+variables:
+  - name: CICD_WORK_DEF_PREFIX
+    value: "${{ parameters['CICD_WORK_DEF_PREFIX'] }}"
+  - name: CICD_WORK_ENV_PREFIX
+    value: "${{ parameters['CICD_WORK_ENV_PREFIX'] }}"
+  - name: CICD_WORK_DEF_API_NAME
+    value: "${{ variables['CICD_WORK_DEF_PREFIX'] }}-api-definition"
+  - name: CICD_WORK_DEF_PRODUCT_NAME
+    value: "${{ variables['CICD_WORK_DEF_PREFIX'] }}-product-definition"
+  - name: CICD_WORK_DEF_ALL_FILES
+    value: "${{ variables['CICD_WORK_DEF_PREFIX'] }}-*-definition"
+  - name: CICD_BUILD_ARTIFACT_NAME
+    value: "${{ parameters['CICD_BUILD_ARTIFACT_NAME'] }}"
+
+# Set stages
+# https://learn.microsoft.com/en-us/azure/devops/pipelines/process/phases?view=azure-devops&tabs=yaml#workspace
+stages:
+  - template: /templates/stages/stage-build-project-definitions.yml
+  - ${{ each CICD_WORK_STAGE in parameters.CICD_WORK_STAGES }}:
+    - template: /templates/stages/stage-deploy-project-definitions.yml
+      parameters:
+        CICD_WORKFLOW_ENVIRONMENT_ID: ${{ upper(replace(CICD_WORK_STAGE, '-', '_')) }}
+        CICD_WORKFLOW_ENVIRONMENT_NAME: ${{ variables['CICD_WORK_ENV_PREFIX'] }}-${{ CICD_WORK_STAGE }}
+        CICD_WORKFLOW_ENVIRONMENT_VARIABLES: ${{ variables['CICD_WORK_DEF_PREFIX'] }}-variables-env-${{ CICD_WORK_STAGE }}.yml

@@ -1,0 +1,13 @@
+type: 'space_setting'
+name: 'space-setting'
+invitation_ttl: 172800
+custom_notification_templates_enabled: false
+allowed_product_visibility:
+  view:
+    type: 'public'
+    enabled: false
+  subscribe:
+    type: 'authenticated'
+    enabled: false
+email_sender:
+  custom: false

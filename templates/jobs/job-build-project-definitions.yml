@@ -1,0 +1,109 @@
+# File: job-build-project-definitions.yml
+# Job: Cette tâche crée et publie l'artefact de build pour les définitions d'API et de Produit
+# Help: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/phases?view=azure-devops&tabs=yaml
+
+parameters:
+  # Nom source des définitions d'API
+  - name: CICD_WORK_DEF_API_NAME
+    type: string
+  # Nom du fichier source des définitions d'API
+  - name: CICD_WORK_DEF_API_FILE
+    type: string
+  # Nom source des définitions de Produit
+  - name: CICD_WORK_DEF_PRODUCT_NAME
+    type: string
+  # Nom du fichier source des définitions de Produit
+  - name: CICD_WORK_DEF_PRODUCT_FILE
+    type: string
+  # Fichiers source de l'artefact de pipeline
+  - name: CICD_BUILD_ARTIFACT_FILES
+    type: string
+  # Nom de l'artefact de pipeline
+  - name: CICD_BUILD_ARTIFACT_NAME
+    type: string
+    default: "drop"
+  # Répertoire de l'artefact de pipeline
+  - name: CICD_BUILD_ARTIFACT_DIRECTORY
+    type: string
+    default: $(Build.ArtifactStagingDirectory)
+
+jobs:
+  - job: BuildJob
+    displayName: "Build des définitions API et Produit"
+    workspace:
+      clean: all
+    steps:
+      # checking out the repository resource with fetchDepth = 0 in order to make fetchTags = true
+      - checkout: self
+        clean: true
+        fetchTags: true
+        fetchDepth: 0
+      - template: /templates/tasks/task-tool-read-semver.yml
+        parameters:
+          CICD_READ_SEM_FILE: ${{ parameters['CICD_WORK_DEF_API_FILE'] }}
+          CICD_READ_SEM_CONF:
+            readname:
+              regex: '.info."x-ibm-name"'
+              variable: 'CICD_WORK_READ_API_NAME'
+            readtitle:
+              regex: '.info.title'
+              variable: 'CICD_WORK_READ_API_TITLE'
+            readsemver:
+              regex: '.info.version'
+              variable: 'CICD_WORK_READ_API_SEMVER'
+            readsemvermaj:
+              regex: ''
+              variable: 'CICD_WORK_READ_API_SEMVER_MAJOR'
+      - template: /templates/tasks/task-tool-read-semver.yml
+        parameters:
+          CICD_READ_SEM_FILE: ${{ parameters['CICD_WORK_DEF_PRODUCT_FILE'] }}
+          CICD_READ_SEM_CONF:
+            readname:
+              regex: '.info.name'
+              variable: 'CICD_WORK_READ_PRODUCT_NAME'
+            readtitle:
+              regex: '.info.title'
+              variable: 'CICD_WORK_READ_PRODUCT_TITLE'
+            readsemver:
+              regex: '.info.version'
+              variable: 'CICD_WORK_READ_PRODUCT_SEMVER'
+            readsemvermaj:
+              regex: ''
+              variable: 'CICD_WORK_READ_PRODUCT_SEMVER_MAJOR'
+      - template: /templates/tasks/task-pipeline-build-artifact.yml
+        parameters:
+          CICD_BUILD_ARTIFACT_NAME: ${{ parameters['CICD_BUILD_ARTIFACT_NAME'] }}
+          CICD_BUILD_ARTIFACT_DIRECTORY: ${{ parameters['CICD_BUILD_ARTIFACT_DIRECTORY'] }}
+          CICD_BUILD_ARTIFACT_FILES: ${{ parameters['CICD_BUILD_ARTIFACT_FILES'] }}
+      - template: /templates/tasks/task-apic-configure.yml
+      - template: /templates/tasks/task-apic-validate-api-definition.yml
+        parameters:
+          CICD_WORK_DEF_NAME: ${{ parameters['CICD_WORK_DEF_API_NAME'] }}
+          CICD_WORK_DEF_FILE: ${{ parameters['CICD_WORK_DEF_API_FILE'] }}
+          CICD_WORK_DATA_NAME: "$(CICD_WORK_READ_API_NAME)"
+          CICD_WORK_DATA_TITLE: "$(CICD_WORK_READ_API_TITLE)"
+          CICD_WORK_DATA_SEMVER: "$(CICD_WORK_READ_API_SEMVER)"
+          CICD_WORK_DATA_SEMVER_MAJOR: "$(CICD_WORK_READ_API_SEMVER_MAJOR)"
+      - template: /templates/tasks/task-apic-validate-product-definition.yml
+        parameters:
+          CICD_WORK_DEF_NAME: ${{ parameters['CICD_WORK_DEF_PRODUCT_NAME'] }}
+          CICD_WORK_DEF_FILE: ${{ parameters['CICD_WORK_DEF_PRODUCT_FILE'] }}
+          CICD_WORK_DATA_NAME: "$(CICD_WORK_READ_PRODUCT_NAME)"
+          CICD_WORK_DATA_TITLE: "$(CICD_WORK_READ_PRODUCT_TITLE)"
+          CICD_WORK_DATA_SEMVER: "$(CICD_WORK_READ_PRODUCT_SEMVER)"
+          CICD_WORK_DATA_SEMVER_MAJOR: "$(CICD_WORK_READ_PRODUCT_SEMVER_MAJOR)"
+      - template: /templates/tasks/task-pipeline-add-tag.yml
+        parameters:
+          CICD_BUILD_TAGS:
+          - name: "YAML Property API Name"
+            value: "$(CICD_WORK_READ_API_NAME)"
+          - name: "YAML Property API Title"
+            value: "$(CICD_WORK_READ_API_TITLE)"
+          - name: "YAML Property API SemVer"
+            value: "$(CICD_WORK_READ_API_SEMVER)"
+          - name: "YAML Property Product Name"
+            value: "$(CICD_WORK_READ_PRODUCT_NAME)"
+          - name: "YAML Property Product Title"
+            value: "$(CICD_WORK_READ_PRODUCT_TITLE)"
+          - name: "YAML Property Product SemVer"
+            value: "$(CICD_WORK_READ_PRODUCT_SEMVER)"

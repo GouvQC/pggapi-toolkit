@@ -1,0 +1,31 @@
+# File: task-pipeline-build-artifact.yml
+# Task: Création et publication d'artefact de build pour les définitions d'API et de Produit
+
+parameters:
+  # Nom de l'artefact
+  - name: CICD_BUILD_ARTIFACT_NAME
+    type: string
+  # Répertoire de l'artefact
+  - name: CICD_BUILD_ARTIFACT_DIRECTORY
+    type: string
+  # Fichiers de l'artefact
+  - name: CICD_BUILD_ARTIFACT_FILES
+    type: string
+
+steps:
+  - task: Bash@3
+    displayName: "Création de l'artefact de build"
+    inputs:
+      targetType: "inline"
+      script: |
+        cp -vpf ${CICD_BUILD_ARTIFACT_FILES} "${CICD_BUILD_ARTIFACT_DIRECTORY}"
+    env:
+      CICD_BUILD_ARTIFACT_FILES: ${{ parameters['CICD_BUILD_ARTIFACT_FILES'] }}
+      CICD_BUILD_ARTIFACT_DIRECTORY: ${{ parameters['CICD_BUILD_ARTIFACT_DIRECTORY'] }}
+  - task: PublishBuildArtifacts@1
+    displayName: "Publication de l'artefact de build"
+    condition: succeededOrFailed()
+    inputs:
+      PathtoPublish: ${{ parameters['CICD_BUILD_ARTIFACT_DIRECTORY'] }}
+      ArtifactName: ${{ parameters['CICD_BUILD_ARTIFACT_NAME'] }}
+      publishLocation: 'Container'
