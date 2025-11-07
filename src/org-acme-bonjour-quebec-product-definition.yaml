@@ -3,11 +3,11 @@ info:
   description: Ceci est un API d'exemple basé sur la spécification OpenAPI 3.0 dont le nom est Bonjour Québec.
   version: 1.3.0
   title: Définition de Produit Bonjour Québec
-  name: mcn-pggapi-bonjour-quebec-product-definition
+  name: org-acme-bonjour-quebec-product-definition
 gateways:
   - datapower-api-gateway
 plans:
-  mcn-pggapi-bonjour-quebec-plan-default-definition:
+  org-acme-bonjour-quebec-plan-default-definition:
     title: Plan de consommation par défaut
     description: Plan de consommation par défaut pour l'API Bonjour Québec.
     approval: false
@@ -15,10 +15,10 @@ plans:
       default:
         value: 500/1hour
     apis:
-      mcn-pggapi-bonjour-quebec-api-definition_1.0.0: {}
-      mcn-pggapi-bonjour-quebec-client-secret-api-definition_1.0.0: {}
-      mcn-pggapi-bonjour-quebec-websocket-api-definition_1.0.0: {}
-  mcn-pggapi-bonjour-quebec-plan-unlimited-definition:
+      org-acme-bonjour-quebec-api-definition_1.0.0: {}
+      org-acme-bonjour-quebec-client-secret-api-definition_1.0.0: {}
+      org-acme-bonjour-quebec-websocket-api-definition_1.0.0: {}
+  org-acme-bonjour-quebec-plan-unlimited-definition:
     title: Plan de consommation illimité
     description: Plan de consommation illimité pour l'API Bonjour Québec.
     approval: true
@@ -29,16 +29,16 @@ plans:
       Default burst-limit:
         value: 5/1second
     apis:
-      mcn-pggapi-bonjour-quebec-api-definition_1.0.0: {}
-      mcn-pggapi-bonjour-quebec-client-secret-api-definition_1.0.0: {}
-      mcn-pggapi-bonjour-quebec-websocket-api-definition_1.0.0: {}
+      org-acme-bonjour-quebec-api-definition_1.0.0: {}
+      org-acme-bonjour-quebec-client-secret-api-definition_1.0.0: {}
+      org-acme-bonjour-quebec-websocket-api-definition_1.0.0: {}
 apis:
-  mcn-pggapi-bonjour-quebec-api-definition_1.0.0:
-    $ref: mcn-pggapi-bonjour-quebec-api-definition.yaml
-  mcn-pggapi-bonjour-quebec-client-secret-api-definition_1.0.0:
-    $ref: mcn-pggapi-bonjour-quebec-client-secret-api-definition.yaml
-  mcn-pggapi-bonjour-quebec-websocket-api-definition_1.0.0:
-    $ref: mcn-pggapi-bonjour-quebec-websocket-api-definition.yaml
+  org-acme-bonjour-quebec-api-definition_1.0.0:
+    $ref: org-acme-bonjour-quebec-api-definition.yaml
+  org-acme-bonjour-quebec-client-secret-api-definition_1.0.0:
+    $ref: org-acme-bonjour-quebec-client-secret-api-definition.yaml
+  org-acme-bonjour-quebec-websocket-api-definition_1.0.0:
+    $ref: org-acme-bonjour-quebec-websocket-api-definition.yaml
 visibility:
   view:
     type: public
