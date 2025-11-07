@@ -1,7 +1,7 @@
 type: rest
 testable: true
 cors:
-    enabled: true
+  enabled: true
 phase: realized
 enforced: true
 gateway: datapower-api-gateway
