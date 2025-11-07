@@ -1,7 +1,6 @@
 # Introduction
 Ce document regroupe les étapes d'importation et de configuration des définitions d'API et de Produit.
 
-[[_TOC_]]
 
 # Étapes de configuration
 ## Étapes de configuration - définition d'API
