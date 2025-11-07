@@ -3,7 +3,7 @@ info:
   description: Ceci est un API d'exemple basé sur la spécification OpenAPI 3.0 et qui permet des connexions WebSocket dont le nom est Bonjour Québec.
   version: 1.0.0
   title: Définition d'API Bonjour Québec avec WebSocket
-  x-ibm-name: mcn-pggapi-bonjour-quebec-websocket-api-definition
+  x-ibm-name: org-acme-bonjour-quebec-websocket-api-definition
 servers:
   - url: /bonjour-quebec-websocket/v1
 components:
@@ -27,4 +27,4 @@ paths:
 security:
   - ApiKeyAuth: []
 x-ibm-configuration:
-  $ref: mcn-pggapi-bonjour-quebec-websocket-ibm-configuration-definition.yaml
+  $ref: org-acme-bonjour-quebec-websocket-ibm-configuration-definition.yaml
