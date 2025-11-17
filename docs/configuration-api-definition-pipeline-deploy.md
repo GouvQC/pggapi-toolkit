@@ -1,8 +1,6 @@
 # Introduction
 
-Ce document regroupe les étapes d'importation de la définition d'API Bonjour Québec, la définition du produit associé ainsi que les étapes de configuration et de mise en place du pipeline de déploiement dans une instance de IBM API Connect en utilisant les gabarits (templates) pour Azure DevOps.
-
-[[_TOC_]]
+Ce document regroupe les étapes d'importation de la définition d'API Bonjour Québec (avec les versions Client Secret et WebSocket), la définition du produit associé ainsi que les étapes de configuration et de mise en place du pipeline de déploiement dans une instance de IBM API Connect en utilisant les gabarits (templates) pour Azure DevOps.
 
 # Étapes de configuration et de mise en place
 
@@ -10,10 +8,16 @@ Ce document regroupe les étapes d'importation de la définition d'API Bonjour Q
 
 Déposer les sources des définitions d'API et de produit dans le dossier [/src](../src) :
   - [org-acme-bonjour-quebec-api-definition.yaml](../src/org-acme-bonjour-quebec-api-definition.yaml)
+  - [org-acme-bonjour-quebec-client-secret-api-definition.yaml](../src/org-acme-bonjour-quebec-client-secret-api-definition.yaml)
+  - [org-acme-bonjour-quebec-websocket-api-definition.yaml](../src/org-acme-bonjour-quebec-websocket-api-definition.yaml)
   - [org-acme-bonjour-quebec-product-definition.yaml](../src/org-acme-bonjour-quebec-product-definition.yaml)
   - [org-acme-bonjour-quebec-ibm-configuration-definition.yaml](../src/org-acme-bonjour-quebec-ibm-configuration-definition.yaml)
+  - [org-acme-bonjour-quebec-websocket-ibm-configuration-definition.yaml](../src/org-acme-bonjour-quebec-websocket-ibm-configuration-definition.yaml)
 
 ## Définition d'API
+
+Exemple pour la définition d'API `org-acme-bonjour-quebec-api-definition.yaml`.
+Utiliser la même logique pour les définitions d'API `org-acme-bonjour-quebec-client-secret-api-definition.yaml` et `org-acme-bonjour-quebec-websocket-api-definition.yaml`.
 
 Mettre à jour la section `info:` :
   - compléter la `version: MAJOR.MINOR.PATCH`
@@ -66,16 +70,20 @@ Mettre à jour la section `info:` :
 
 ```yaml
 info:
-  version: 1.0.1
+  version: 1.3.0
   title: Définition de Produit Bonjour Québec
   name: org-acme-bonjour-quebec-product-definition
 ```
 
-Définir les plans et la référence vers l'API :
+Définir les plans et la référence vers les API :
 ```yaml
 apis:
   org-acme-bonjour-quebec-api-definition_1.0.0:
     $ref: org-acme-bonjour-quebec-api-definition.yaml
+  org-acme-bonjour-quebec-client-secret-api-definition_1.0.0:
+    $ref: org-acme-bonjour-quebec-client-secret-api-definition.yaml
+  org-acme-bonjour-quebec-websocket-api-definition_1.0.0:
+    $ref: org-acme-bonjour-quebec-websocket-api-definition.yaml
 ```
 
 ## Pipeline de déploiement 
