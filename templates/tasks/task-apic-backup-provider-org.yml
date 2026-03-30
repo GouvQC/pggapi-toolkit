@@ -1,0 +1,132 @@
+# File: task-apic-backup-provider-org.yml
+# Task: Cette tâche sauvegarde une organisation productrice
+
+parameters:
+  # URL de la composante API Connect Manager
+  - name: CICD_APIC_MANAGER_URL
+    type: string
+  # Nom de la ressource type Organisation
+  - name: CICD_APIC_RESSOURCE_ORGANIZATION_NAME
+    type: string
+
+steps:
+  - task: Bash@3
+    displayName: 'Sauvegarde organisation productrice'
+    inputs:
+      targetType: 'inline'
+      script: |
+        echo " Organisation Productrice: ${PROVIDER_ORG}"
+
+        # Configurer l'url du serveur et de l'organisation
+        apic config:set cloud=${APIC_PLATFORM_ENDPOINT}/api
+        apic config:set org=${PROVIDER_ORG}
+        
+        # Créer le dossier de données
+        mkdir -p ${CLOUD_DIR}/provider_orgs/${PROVIDER_ORG}
+        cd ${CLOUD_DIR}/provider_orgs/${PROVIDER_ORG}
+
+        echo "==============================="
+        echo " Extraire les 'drafts' des API et produits" 
+        echo "==============================="
+
+        mkdir -p ${CLOUD_DIR}/provider_orgs/${PROVIDER_ORG}/drafts
+        cd ${CLOUD_DIR}/provider_orgs/${PROVIDER_ORG}/drafts
+
+        for DRAFT_API in $(apic draft-apis:list-all --format json --fields name,version | jq -r '.results[] | join(":")')
+        do
+          echo "'Draft api' trouvée: ${DRAFT_API}"
+          DRAFT_FILE_NAME=$(echo ${DRAFT_API} | sed 's/:/_/g').json
+          apic draft-apis:document  ${DRAFT_API} --format json > ${DRAFT_FILE_NAME}
+        done
+
+        for DRAFT_PRODUCT in $(apic draft-products:list-all --format json --fields name,version | jq -r '.results[] | join(":")')
+        do
+          echo "'Draft Product' trouvé: ${DRAFT_PRODUCT}"
+          DRAFT_FILE_NAME=$(echo ${DRAFT_PRODUCT} | sed 's/:/_/g').json
+          apic draft-products:document ${DRAFT_PRODUCT} --format json > ${DRAFT_FILE_NAME}
+        done
+
+        echo "============================================================"
+        echo "Extraire les catalogues et les espaces de l'Organisation Productrice: ${PROVIDER_ORG}"
+        echo "============================================================"
+
+        for CATALOG in $(apic catalogs:list --format json --output - | jq -r '.results[].name')
+        do
+          echo "  - Catalogue: ${CATALOG}"
+          mkdir -p ${CLOUD_DIR}/provider_orgs/${PROVIDER_ORG}/catalogs/${CATALOG}
+          cd ${CLOUD_DIR}/provider_orgs/${PROVIDER_ORG}/catalogs/${CATALOG}
+
+          apic catalogs:get --format json --fields type,name,title,summary ${CATALOG}
+
+          # Extraire les paramètres du catalogue
+          apic catalog-settings:get --catalog ${CATALOG} --format json --output - | jq 'del(.portal,.org_url,.catalog_url,.url,.created_at,.updated_at,.user_registry_default_url)' > catalog-settings.json
+
+          # Extraire les registres d'utilisateurs configurés
+          apic configured-catalog-user-registries:list --catalog ${CATALOG} --format json --fields name,title,type,api_version,registry_type --output - | jq '.results[]' > configured-catalog-user-registries.json
+
+          # Extraire les propriétés du catalogue
+          apic properties:list --scope catalog --catalog ${CATALOG} --format json > catalog-properties.json
+
+          # Vérifier s'il y a des espaces dans le catalogue
+          SPACES_EXIST=$(apic spaces:list --catalog ${CATALOG} | wc -l | sed 's/ //g')
+
+          if [[ ${SPACES_EXIST} == 0 ]]; then
+            echo "* Aucun espace dans ${CATALOG} — extraction des produits du catalogue *"
+
+            # Extraire les services de passerelle (gateway) configurés
+            apic configured-gateway-services:list --scope catalog --catalog ${CATALOG} --format json | jq '.results[] | { id: .id, name: .name}' > configured-gateway-services.json
+
+            # Identifier dans quel service de passerelle (gateway) chaque produit est publié 
+            apic products:list-all --catalog ${CATALOG} --scope catalog --format json | jq '.results[] | { name: .name, version: .version, state: .state, gateway_service_urls: .gateway_service_urls}' | jq 'select(.state == "published")' > products-gateway-services.json
+
+            # Obtenir les profils TLS configurés dans ce catalogue
+            apic configured-tls-client-profiles:list-all --catalog ${CATALOG} --scope catalog --format json | jq '.results[] | { name: .name, version: .version }' > configured-tls-client-profiles.json
+
+            mkdir -p ${CLOUD_DIR}/provider_orgs/${PROVIDER_ORG}/catalogs/${CATALOG}/products
+            cd ${CLOUD_DIR}/provider_orgs/${PROVIDER_ORG}/catalogs/${CATALOG}/products	
+            for PRODUCT in $(apic products:list-all --catalog ${CATALOG} --scope catalog | grep "state: *published" | awk '{print $1}')
+            do
+              echo "    - Produit: ${PRODUCT}"
+              apic products:get --catalog ${CATALOG} --scope catalog --format json ${PRODUCT}  
+            done
+
+          else
+            echo "* Espaces trouvés dans ${CATALOG} — extraction par espace *"
+            for SPACE in $(apic spaces:list --catalog ${CATALOG} --format json --output - | jq -r '.results[].name')
+            do
+              echo "    - Espace: ${SPACE}"	
+
+              mkdir -p ${CLOUD_DIR}/provider_orgs/${PROVIDER_ORG}/catalogs/${CATALOG}/spaces/${SPACE}
+              cd ${CLOUD_DIR}/provider_orgs/${PROVIDER_ORG}/catalogs/${CATALOG}/spaces/${SPACE}
+
+              apic spaces:get --catalog ${CATALOG} --format json --fields type,name,title,summary ${SPACE}
+
+              # Extraire les paramètres de l'espace
+              apic space-settings:get --catalog ${CATALOG} --space ${SPACE} --format json --output - | jq 'del(.org_url,.catalog_url,.space_url,.url,.created_at,.updated_at)' > space-settings.json
+
+              #  Extraire les services de passerelle configurés
+              apic configured-gateway-services:list --scope space --catalog ${CATALOG} --space ${SPACE} --format json | jq '.results[] | { id: .id, name: .name}' > configured-gateway-services.json
+
+              # Identifier dans quel service de passerelle chaque produit est publié
+              apic products:list-all --catalog ${CATALOG} --space ${SPACE} --scope space --format json | jq '.results[] | { name: .name, version: .version, state: .state, gateway_service_urls: .gateway_service_urls}' | jq 'select(.state == "published")' > products-gateway-services.json
+
+              # Obtenir les profils TLS configurés dans cet espace
+              apic configured-tls-client-profiles:list-all --catalog ${CATALOG} --space ${SPACE} --scope space --format json | jq '.results[] | { name: .name, version: .version }' > configured-tls-client-profiles.json
+
+              mkdir -p ${CLOUD_DIR}/provider_orgs/${PROVIDER_ORG}/catalogs/${CATALOG}/spaces/${SPACE}/products
+              cd ${CLOUD_DIR}/provider_orgs/${PROVIDER_ORG}/catalogs/${CATALOG}/spaces/${SPACE}/products
+            
+              for PRODUCT in $(apic products:list-all --catalog ${CATALOG} --space ${SPACE} --scope space | grep "state: *published" | awk '{print $1}')
+              do
+                echo "      - Produit: ${PRODUCT}"
+                apic products:get --catalog ${CATALOG} --space ${SPACE} --scope space --format json ${PRODUCT}
+              done
+            done
+          fi	  
+        done
+      failOnStderr: true
+    env:
+      CLOUD_DIR: $(System.DefaultWorkingDirectory)
+      APIC_PLATFORM_ENDPOINT: ${{ parameters['CICD_APIC_MANAGER_URL'] }}
+      PROVIDER_ORG: ${{ parameters['CICD_APIC_RESSOURCE_ORGANIZATION_NAME'] }}
+

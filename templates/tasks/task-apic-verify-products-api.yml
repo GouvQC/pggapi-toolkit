@@ -1,0 +1,71 @@
+# File: task-apic-verify-products-api.yml
+# Task: Cette tâche vérifie si l'organisation cible contient des produits ou des apis
+
+parameters:
+  # URL de la composante API Connect Manager
+  - name: CICD_APIC_MANAGER_URL
+    type: string
+  # Nom de l'organisation cible ou la restauration ce fait
+  - name: CICD_APIC_RESSOURCE_ORGANIZATION_NAME_TARGET
+    type: string
+    default: 'org-ministere-acme-restore'
+  # Numéro de build oèu sont les fichiers json qui seront utilisés pour la restauration
+  - name: CICD_FILES_BUILD_NUMBER_ORG_SOURCE
+    type: string
+    default: ''
+steps:
+  - task: Bash@3
+    displayName: "Verification de l'organisation cible à restaurer: aucun produit et api"
+    inputs:
+      targetType: 'inline'
+      script: |
+        echo "Organisation cible : ${PROVIDER_ORG_RESTORE}"
+
+        ##############################################
+        # Vérification des APIs en draft
+        ##############################################
+        echo "==============================="
+        echo "Checking draft APIs"
+        echo "==============================="
+
+        API_JSON=$(apic draft-apis:list-all \
+          --server "${APIC_PLATFORM_ENDPOINT}" \
+          --org "${PROVIDER_ORG_RESTORE}" \
+          --format json --fields name,version)
+
+        API_COUNT=$(echo "$API_JSON" | jq '.results | length')
+        echo "${API_COUNT} draft API trouvées"
+
+        if [ "$API_COUNT" -gt 0 ]; then
+          echo "Draft APIs trouvées:"
+          echo "$API_JSON" | jq -r '.results[] | "\(.name):\(.version)"'
+          echo "Arrêt : l'organisation cible ${PROVIDER_ORG_RESTORE} contient ${API_COUNT} draft API."
+          exit 1
+        fi
+
+        ##############################################
+        # Vérification des Produits en draft
+        ##############################################
+        echo "==============================="
+        echo "Checking draft Products"
+        echo "==============================="
+
+        PRODUCT_JSON=$(apic draft-products:list-all \
+          --server "${APIC_PLATFORM_ENDPOINT}" \
+          --org "${PROVIDER_ORG_RESTORE}" \
+          --format json --fields name,version)
+
+        PRODUCT_COUNT=$(echo "$PRODUCT_JSON" | jq '.results | length')
+        echo "${PRODUCT_COUNT} draft Product(s) trouvés"
+
+        if [ "$PRODUCT_COUNT" -gt 0 ]; then
+          echo "Draft Products detected:"
+          echo "$PRODUCT_JSON" | jq -r '.results[] | "\(.name):\(.version)"'
+          echo "Arrêt: l'organisation cible ${PROVIDER_ORG_RESTORE} contient ${PRODUCT_COUNT} draft Product(s)."
+          exit 1
+        fi
+
+      failOnStderr: true
+    env:
+      APIC_PLATFORM_ENDPOINT: ${{ parameters['CICD_APIC_MANAGER_URL'] }}
+      PROVIDER_ORG_RESTORE: ${{ parameters['CICD_APIC_RESSOURCE_ORGANIZATION_NAME_TARGET'] }}

@@ -1,0 +1,94 @@
+# File: task-apic-restore-product.yml
+# Task: Cette tâche restaure les définitions de produits partir d'une source de sauvegarde d'une organisation
+
+parameters:
+  # URL de la composante API Connect Manager
+  - name: CICD_APIC_MANAGER_URL
+    type: string
+  # Nom de la ressource type Organisation
+  - name: CICD_APIC_RESSOURCE_ORGANIZATION_NAME
+    type: string
+  # Nom de l'organisation cible ou la restauration ce fait
+  - name: CICD_APIC_RESSOURCE_ORGANIZATION_NAME_TARGET
+    type: string
+    default: 'org-ministere-acme-restore'
+
+steps:
+  - task: Bash@3
+    displayName: 'Restore product list'
+    inputs:
+      targetType: 'inline'
+      script: |
+        echo "================================"
+        echo "RESTORE PRODUCT LIST"
+        echo "================================"
+
+        ZIP_ARCHIVE_PATH_NAME="$(Build.ArtifactStagingDirectory)/backup-organization-${PROVIDER_ORG}.zip"
+        echo "ZIP archive: $ZIP_ARCHIVE_PATH_NAME"
+
+        if [ ! -f "$ZIP_ARCHIVE_PATH_NAME" ]; then
+          echo "ERROR: Backup archive missing: $ZIP_ARCHIVE_PATH_NAME"
+          exit 1
+        fi
+
+        echo "Scanning ZIP for draft JSON files..."
+
+        # Liste tous les fichiers JSON sous drafts/
+        DRAFT_FILES=$(unzip -Z1 "$ZIP_ARCHIVE_PATH_NAME" | grep -E '(^|.*/)drafts/.*\.json$' || true)
+
+        if [ -z "$DRAFT_FILES" ]; then
+          echo "No draft JSON files found in archive."
+          exit 1
+        fi
+
+        PRODUCT_FILES=""
+
+        # Détection PRODUIT : présence de "product", "plans", "apis"
+        for f in $DRAFT_FILES; do
+          CONTENT=$(unzip -p "$ZIP_ARCHIVE_PATH_NAME" "$f" 2>/dev/null || true)
+
+          if echo "$CONTENT" | jq -e '
+              has("product") and has("plans") and has("apis")
+              and (.info.name? != null or .info.title? != null)
+            ' >/dev/null 2>&1; then
+              PRODUCT_FILES+="$f"$'\n'
+          fi
+        done
+
+        if [ -z "$PRODUCT_FILES" ]; then
+          echo "No PRODUCT drafts detected in archive."
+          exit 1
+        fi
+
+        echo "================================"
+        echo "PRODUCT files detected:"
+        echo "$PRODUCT_FILES"
+        echo "================================"
+
+        echo "Restoring Products into provider org: ${PROVIDER_ORG_RESTORE}"
+        echo
+
+        # Import des produits
+        while IFS= read -r product_path; do
+          [ -z "$product_path" ] && continue
+
+          echo "--------------------------------------------"
+          echo "Restoring PRODUCT: $(basename "$product_path")"
+          echo "--------------------------------------------"
+
+          TMP_JSON=$(mktemp -t apic-product-XXXXXX.json)
+          unzip -p "$ZIP_ARCHIVE_PATH_NAME" "$product_path" > "$TMP_JSON"
+
+          apic draft-products:create "$TMP_JSON" \
+            --server "$APIC_PLATFORM_ENDPOINT" \
+            --org "$PROVIDER_ORG_RESTORE"
+
+          echo "OK: PRODUCT restored from $product_path"
+          echo
+        done <<< "$PRODUCT_FILES"
+
+      failOnStderr: true
+    env:
+      APIC_PLATFORM_ENDPOINT: ${{ parameters['CICD_APIC_MANAGER_URL'] }}
+      PROVIDER_ORG: ${{ parameters['CICD_APIC_RESSOURCE_ORGANIZATION_NAME'] }}
+      PROVIDER_ORG_RESTORE: ${{ parameters['CICD_APIC_RESSOURCE_ORGANIZATION_NAME_TARGET'] }}

@@ -1,0 +1,148 @@
+# File: task-apic-backup-consumer-org.yml
+# Task: Cette tâche sauvegarde une organisation consommatrice
+
+parameters:
+  # URL de la composante API Connect Manager
+  - name: CICD_APIC_MANAGER_URL
+    type: string
+  # Nom de la ressource type Organisation
+  - name: CICD_APIC_RESSOURCE_ORGANIZATION_NAME
+    type: string
+
+steps:
+  - task: Bash@3
+    displayName: 'Sauvegarde organisation consommatrice'
+    inputs:
+      targetType: 'inline'
+      script: |
+        echo " Organisation Productrice: ${PROVIDER_ORG}"
+
+        # Configurer l'url du serveur et de l'organisation
+        apic config:set cloud=${APIC_PLATFORM_ENDPOINT}/api
+        apic config:set org=${PROVIDER_ORG}
+
+        # Créer le dossier de données
+        mkdir -p ${CLOUD_DIR}/provider_orgs/${PROVIDER_ORG}
+        cd ${CLOUD_DIR}/provider_orgs/${PROVIDER_ORG}
+
+        echo "========================================================"
+        echo "Extraire les registres d'utilisateurs de l'organisation : ${PROVIDER_ORG}"
+        echo "========================================================"
+        apic user-registries:list --format json | jq '.results[] | { name: .name, id: .id }' > ${LIST_OF_SRC_USER_REGISTRIES}
+
+        echo "======================================================"
+        echo "Extraire les organisations consommatrices de chaque catalogue"
+        echo "======================================================"
+
+        for CATALOG in $(apic catalogs:list --format json --output - | jq -r '.results[].name')
+        do
+          echo "- Catalogue : ${CATALOG}"
+          mkdir -p ${CLOUD_DIR}/provider_orgs/${PROVIDER_ORG}/catalogs/${CATALOG}
+          cd ${CLOUD_DIR}/provider_orgs/${PROVIDER_ORG}/catalogs/${CATALOG}
+
+          apic catalogs:get --format json --fields type,api_version,name,title,summary,owner_url ${CATALOG}
+
+          for CONSUMER_ORG in $(apic consumer-orgs:list --catalog ${CATALOG} --format json --output - | jq -r '.results[].name')
+          do
+            echo "  - Organisation consommatrice : ${CONSUMER_ORG}"	 
+            mkdir -p ${CLOUD_DIR}/provider_orgs/${PROVIDER_ORG}/catalogs/${CATALOG}/consumer_orgs/${CONSUMER_ORG}
+            cd ${CLOUD_DIR}/provider_orgs/${PROVIDER_ORG}/catalogs/${CATALOG}/consumer_orgs/${CONSUMER_ORG}  
+            apic consumer-orgs:get --catalog ${CATALOG} --format json --fields type,api_version,name,title,summary,owner_url ${CONSUMER_ORG} 
+
+            # Rechercher le registre d'utilisateurs pour l'organisation consommatrice
+
+            # Rechercher le nom du registre d'utilisateurs par ID
+            USER_REGISTRY_ID=$(cat ${CONSUMER_ORG}.json | jq -r '.owner_url' | sed 's,\/users.*,,' | sed 's,.*\/user-registries\/.*\/,,') 
+            echo "ID du registre d'utilisateurs: ${USER_REGISTRY_ID}"
+            cat ${CLOUD_DIR}/provider_orgs/${PROVIDER_ORG}/${LIST_OF_SRC_USER_REGISTRIES} | jq --arg id "$USER_REGISTRY_ID" 'select (.id == $id)' | jq -r '.name' > user-registry-name.txt
+
+            # Lister les roles dans l'organisation consommatrice
+            apic roles:list --scope consumer-org --org ${PROVIDER_ORG} --catalog ${CATALOG} --consumer-org ${CONSUMER_ORG} --format json | jq '.results[] | { name: .name, id: .id }' > roles.json
+
+            # Rechercher l'adresse du propriétaire de l'organisation consommatrice
+            # Obtenir l'ID du propriétaire
+            OWNER_ID=$(cat ${CONSUMER_ORG}.json | jq -r '.owner_url' | sed "s/.*users\///g")
+            # Obtenir l'ID du registre d'utilisateurs
+            USER_REGISTRY_ID=$(cat ${CONSUMER_ORG}.json | jq -r '.owner_url' | sed "s/\/users.*//g" | sed "s/.*user-registries\/.*\///g")
+            # Obtenir le nom du propriétaire
+            OWNER_NAME=$(apic users:get --user-registry ${USER_REGISTRY_ID} --format json --output - ${OWNER_ID} | jq -r '.name')
+            echo "    - Propriétaire : ${OWNER_NAME}"
+            # Extraire les données du propriétaire
+            mkdir -p ${CLOUD_DIR}/provider_orgs/${PROVIDER_ORG}/catalogs/${CATALOG}/consumer_orgs/${CONSUMER_ORG}/owner
+            cd ${CLOUD_DIR}/provider_orgs/${PROVIDER_ORG}/catalogs/${CATALOG}/consumer_orgs/${CONSUMER_ORG}/owner
+            apic users:get --user-registry ${USER_REGISTRY_ID} --format json --fields type,api_version,name,title,username,email,first_name,last_name ${OWNER_ID}
+
+            # Lister les membres et leurs rôles
+            cd ${CLOUD_DIR}/provider_orgs/${PROVIDER_ORG}/catalogs/${CATALOG}/consumer_orgs/${CONSUMER_ORG}
+            touch  members-roles.json
+
+            for MEMBER in $(apic members:list --catalog ${CATALOG} --consumer-org ${CONSUMER_ORG} --scope consumer-org --format json | jq -r '.results[] | .user.name')
+            do
+              USER_ROLE_URL=$(apic members:get --catalog ${CATALOG} --consumer-org ${CONSUMER_ORG} --scope consumer-org --format json --output - ${MEMBER} | jq -r '.role_urls[]')
+              USER_ROLE_ID=$(echo ${USER_ROLE_URL} | sed 's,.*\/roles\/,,')
+
+              for ROLE_ID in $(cat ${CLOUD_DIR}/provider_orgs/${PROVIDER_ORG}/catalogs/${CATALOG}/consumer_orgs/${CONSUMER_ORG}/roles.json | jq -r '.id') 
+              do
+                if [[ ${ROLE_ID} == ${USER_ROLE_ID} ]]; then 
+            USER_ROLE_NAME=$(cat ${CLOUD_DIR}/provider_orgs/${PROVIDER_ORG}/catalogs/${CATALOG}/consumer_orgs/${CONSUMER_ORG}/roles.json | jq --arg id "$ROLE_ID" 'select(.id == $id)' | jq -r '.name')	
+            echo "Rôle trouvé : ${USER_ROLE_NAME}"
+            echo "{ \"member\": \"${MEMBER}\", \"role\": \"${USER_ROLE_NAME}\" }" >> members-roles.json
+                fi		
+              done	      
+            done
+
+            # Rechercher tous les membres, sauf le propriétaire
+            mkdir -p ${CLOUD_DIR}/provider_orgs/${PROVIDER_ORG}/catalogs/${CATALOG}/consumer_orgs/${CONSUMER_ORG}/members
+            cd ${CLOUD_DIR}/provider_orgs/${PROVIDER_ORG}/catalogs/${CATALOG}/consumer_orgs/${CONSUMER_ORG}/members
+
+            for MEMBER in $(apic members:list --catalog ${CATALOG} --consumer-org ${CONSUMER_ORG} --scope consumer-org --format json | jq -r '.results[] | .user.name')
+            do
+              USER_ID=$(apic members:get --catalog ${CATALOG} --consumer-org ${CONSUMER_ORG} --scope consumer-org --format json --output - ${MEMBER} | jq -r '.user.id')	    
+              if ! [[ ${USER_ID} == ${OWNER_ID} ]]; then
+                echo "    - Membre : ${MEMBER}"
+                apic members:get --catalog ${CATALOG} --consumer-org ${CONSUMER_ORG} --scope consumer-org --fields type,api_version,name,title,user --format json ${MEMBER}
+              fi	
+            done	    
+            
+            # Extraire les applications
+            mkdir -p ${CLOUD_DIR}/provider_orgs/${PROVIDER_ORG}/catalogs/${CATALOG}/consumer_orgs/${CONSUMER_ORG}/applications
+            cd ${CLOUD_DIR}/provider_orgs/${PROVIDER_ORG}/catalogs/${CATALOG}/consumer_orgs/${CONSUMER_ORG}/applications
+            for APP in $(apic apps:list --catalog ${CATALOG} --consumer-org ${CONSUMER_ORG} --format json --output - | jq -r '.results[].name')
+            do
+              echo "    - Application : ${APP}"	  
+              mkdir -p ${CLOUD_DIR}/provider_orgs/${PROVIDER_ORG}/catalogs/${CATALOG}/consumer_orgs/${CONSUMER_ORG}/applications/${APP}
+              cd ${CLOUD_DIR}/provider_orgs/${PROVIDER_ORG}/catalogs/${CATALOG}/consumer_orgs/${CONSUMER_ORG}/applications/${APP}   
+              apic apps:get --catalog ${CATALOG} --consumer-org ${CONSUMER_ORG} --fields type,api_version,name,title,summary,lifecycle_state,application_public_certificate_entry --format json ${APP}	  
+          
+              # Extraire les identifiants d'application 
+              for CRED in $(apic credentials:list --catalog ${CATALOG} --consumer-org ${CONSUMER_ORG} --app ${APP} --format json --output - | jq -r '.results[].name')
+              do
+                mkdir -p ${CLOUD_DIR}/provider_orgs/${PROVIDER_ORG}/catalogs/${CATALOG}/consumer_orgs/${CONSUMER_ORG}/applications/${APP}/credentials
+                cd ${CLOUD_DIR}/provider_orgs/${PROVIDER_ORG}/catalogs/${CATALOG}/consumer_orgs/${CONSUMER_ORG}/applications/${APP}/credentials      
+                apic credentials:get --catalog ${CATALOG} --consumer-org ${CONSUMER_ORG} --app ${APP} --fields type,api_version,name,title,summary,client_id,client_secret_hashed --format json ${CRED} 
+              done
+          
+              # Extraire les abonnements 
+              mkdir -p ${CLOUD_DIR}/provider_orgs/${PROVIDER_ORG}/catalogs/${CATALOG}/consumer_orgs/${CONSUMER_ORG}/applications/${APP}/subscriptions
+              cd ${CLOUD_DIR}/provider_orgs/${PROVIDER_ORG}/catalogs/${CATALOG}/consumer_orgs/${CONSUMER_ORG}/applications/${APP}/subscriptions	
+              for SUB in $(apic subscriptions:list --catalog ${CATALOG} --consumer-org ${CONSUMER_ORG} --app ${APP} --format json --output - | jq -r '.results[].name')
+              do
+                echo "      - Abonnement : ${SUB}"	
+                mkdir -p ${CLOUD_DIR}/provider_orgs/${PROVIDER_ORG}/catalogs/${CATALOG}/consumer_orgs/${CONSUMER_ORG}/applications/${APP}/subscriptions/${SUB}
+                cd ${CLOUD_DIR}/provider_orgs/${PROVIDER_ORG}/catalogs/${CATALOG}/consumer_orgs/${CONSUMER_ORG}/applications/${APP}/subscriptions/${SUB}
+                apic subscriptions:get --catalog ${CATALOG} --consumer-org ${CONSUMER_ORG} --app ${APP} --format json --fields type,api_version,name,product_url,plan ${SUB}
+
+                # Obtenir le nom et la version du produit 
+                PRODUCT_ID=$(cat ${SUB}.json | jq -r '.product_url' | sed 's,.*/products/,,g')
+                echo "Product ID: ${PRODUCT_ID}"
+                apic products:get --catalog ${CATALOG} --scope catalog --fields name,version --id ${PRODUCT_ID} --format json --output - > product.json
+              done
+            done	  
+          done	
+        done
+      failOnStderr: true
+    env:
+      CLOUD_DIR: $(System.DefaultWorkingDirectory)
+      APIC_PLATFORM_ENDPOINT: ${{ parameters['CICD_APIC_MANAGER_URL'] }}
+      PROVIDER_ORG: ${{ parameters['CICD_APIC_RESSOURCE_ORGANIZATION_NAME'] }}
+      LIST_OF_SRC_USER_REGISTRIES: list-src-user-registries.json

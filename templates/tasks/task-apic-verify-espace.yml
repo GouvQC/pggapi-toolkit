@@ -1,0 +1,96 @@
+# File: task-apic-verify-espace.yml
+# Task: Cette tâche vérifie si l'organisation cible contient l'espace demandé
+
+parameters:
+  # URL de la composante API Connect Manager
+  - name: CICD_APIC_MANAGER_URL
+    type: string
+  # Nom de l'organisation cible où la restauration est effectuée
+  - name: CICD_APIC_RESSOURCE_ORGANIZATION_NAME_TARGET
+    type: string
+    default: 'org-ministere-acme-restore'
+  # Nom de l'espace cible
+  - name: CICD_APIC_CATALOGUE_ESPACE_NAME_TARGET 
+    type: string 
+steps:
+  - task: Bash@3
+    displayName: "Verification de l'organisation cible à restaurer: espace inexistant"
+    inputs:
+      targetType: 'inline'
+      script: |
+        echo "Organisation cible: ${PROVIDER_ORG_RESTORE}"  
+
+        CATALOG=$(echo "$CATALOGUE_ESPACE_NAME" | sed 's/-esp-.*//')
+
+        echo "Catalogue: ${CATALOG}"    
+
+        ##############################################
+        # Vérification du catalogue
+        ##############################################
+        echo "==============================="
+        echo "Checking le catalogue"
+        echo "==============================="
+        CATALOGS_JSON=$(apic catalogs:list \
+          --server "${APIC_PLATFORM_ENDPOINT}" \
+          --org "${PROVIDER_ORG_RESTORE}" \
+          --format json --fields name,version
+          )        
+
+        EXISTS_CAT=$(echo "$CATALOGS_JSON" | jq -r '.results[].name' | grep -w "^$CATALOG$")
+
+        if [[ -z "$EXISTS_CAT" ]]; then
+            echo "Arrêt: le catalogue '${CATALOG}' n'existe pas"
+            exit 1
+        fi 
+
+        ##############################################
+        # Vérification de l'espace
+        ##############################################
+        echo "==============================="
+        echo "Checking l'espace"
+        echo "==============================="
+
+        SPACES_JSON=$(apic spaces:list \
+          --server "${APIC_PLATFORM_ENDPOINT}" \
+          --org "${PROVIDER_ORG_RESTORE}" \
+          --catalog "$CATALOG" \
+          --format json --fields name,version
+          )
+
+        if [ $? -ne 0 ]; then
+          echo "Erreur lors de l'obtention de la liste d'espaces."
+          exit 1
+        fi
+
+        EXISTS=$(echo "$SPACES_JSON" | jq -r '.results[].name' | grep -w "^$CATALOGUE_ESPACE_NAME$")
+
+        if [[ -z "$EXISTS" ]]; then
+            echo "Arrêt: l'espace '${CATALOGUE_ESPACE_NAME}' n'existe pas"
+            exit 1
+        fi    
+
+        echo "==============================="
+        echo "L'espace doit être vide"
+        echo "==============================="
+
+        PRODUCTSINSPACE=$(apic products:list-all \
+          --scope space \
+          --server "${APIC_PLATFORM_ENDPOINT}" \
+          --org "${PROVIDER_ORG_RESTORE}" \
+          --catalog "$CATALOG" \
+          --space "${CATALOGUE_ESPACE_NAME}"
+        )
+
+        LINE_COUNT=$(echo "$PRODUCTSINSPACE" | grep -c ".")
+
+        if [ "$LINE_COUNT" -gt 0 ]; then
+            echo "Erreur: L'espace doit être vide"
+            exit 1
+        fi
+
+
+      failOnStderr: true
+    env:
+      APIC_PLATFORM_ENDPOINT: ${{ parameters['CICD_APIC_MANAGER_URL'] }}
+      PROVIDER_ORG_RESTORE: ${{ parameters['CICD_APIC_RESSOURCE_ORGANIZATION_NAME_TARGET'] }}
+      CATALOGUE_ESPACE_NAME: ${{ parameters['CICD_APIC_CATALOGUE_ESPACE_NAME_TARGET'] }}
