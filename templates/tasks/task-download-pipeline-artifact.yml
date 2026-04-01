@@ -1,4 +1,4 @@
-# File: task-apic-get-artifact-backup-json.yml
+# File: task-download-pipeline-artifact.yml
 # Task: Cette tâche lit le fichier json produit par la pipeline de backup et qui sera utilisé dans la restauration
 
 parameters:

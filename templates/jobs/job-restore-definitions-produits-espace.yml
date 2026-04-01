@@ -43,7 +43,7 @@ jobs:
           CICD_APIC_MANAGER_URL: ${{ parameters['CICD_APIC_MANAGER_URL'] }}
           CICD_APIC_RESSOURCE_ORGANIZATION_NAME_TARGET: ${{ parameters['CICD_APIC_RESSOURCE_ORGANIZATION_NAME_TARGET'] }}
           CICD_APIC_CATALOGUE_ESPACE_NAME_TARGET: ${{ parameters['CICD_APIC_CATALOGUE_ESPACE_NAME_TARGET'] }}
-      - template: /templates/tasks/task-apic-get-artifact-backup-json.yml
+      - template: /templates/tasks/task-download-pipeline-artifact.yml
         parameters:
           CICD_APIC_DEFINITION_ID: ${{ parameters['CICD_APIC_DEFINITION_ID'] }}
       - template: /templates/tasks/task-apic-read-backup-json.yml
