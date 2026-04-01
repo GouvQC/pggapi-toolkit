@@ -25,9 +25,6 @@ parameters:
   # Nom de l'espace cible
   - name: CICD_APIC_CATALOGUE_ESPACE_NAME_TARGET 
     type: string
-  - name: CICD_ARTIFACTORY_DOWNLOAD_REPO
-    type: string
-    default: "bin-PGGAPI-dev"
 
 jobs:
   - job: RestoreProductsInSpaces

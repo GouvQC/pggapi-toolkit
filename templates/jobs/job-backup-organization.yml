@@ -12,9 +12,6 @@ parameters:
   # Nom de la ressource type Organisation pour créer un backup
   - name: CICD_APIC_RESSOURCE_ORGANIZATION_NAME
     type: string
-  - name: CICD_ARTIFACTORY_UPLOAD_REPO
-    type: string
-    default: "bin-PGGAPI-dev"
 
 jobs:
   - job: BackupOrganizationJob

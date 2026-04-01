@@ -35,8 +35,6 @@ variables:
     value: "https://api.4ef0-67e5d910.ca-tor.ri.apiconnect.cloud.ibm.com"
   # Nom du groupe de variables pour garder les secrets cible pour ce pipeline
   - group: ${{ parameters['CICD_SECRETS_APIC_IAM_APIKEY'] }}
-# - name: APIC_IAM_APIKEY
-#   value: "*****"
 
 # Set stages
 # https://learn.microsoft.com/en-us/azure/devops/pipelines/process/phases?view=azure-devops&tabs=yaml#workspace
