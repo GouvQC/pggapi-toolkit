@@ -1,0 +1,142 @@
+# File: task-apic-restore-product.yml
+# Task: Cette tâche restaure les définitions de produits partir d'une source de sauvegarde d'une organisation
+
+parameters:
+  # URL de la composante API Connect Manager
+  - name: CICD_APIC_MANAGER_URL
+    type: string
+  # Nom de la ressource type Organisation
+  - name: CICD_APIC_RESSOURCE_ORGANIZATION_NAME
+    type: string
+  # Nom de l'organisation cible où la restauration est effectuée
+  - name: CICD_APIC_RESSOURCE_ORGANIZATION_NAME_TARGET
+    type: string
+    default: 'org-ministere-acme-restore'
+  # Nom de l'espace source
+  - name: CICD_APIC_CATALOGUE_ESPACE_NAME_SOURCE
+    type: string
+  # Nom de l'espace cible
+  - name: CICD_APIC_CATALOGUE_ESPACE_NAME_TARGET 
+    type: string
+
+steps:
+  - task: Bash@3
+    displayName: 'Restauration de la liste des produits'
+    inputs:
+      targetType: 'inline'
+      script: |
+        echo "================================"
+        echo "RESTAURATION DE LA LISTE DES PRODUITS"
+        echo "================================"
+
+        ZIP_ARCHIVE_PATH_NAME="$(Build.ArtifactStagingDirectory)/backup-organization-${PROVIDER_ORG}.zip"
+
+        #TO DELETE. VALIDATION
+        ls -R $(Build.ArtifactStagingDirectory)
+
+        if [ ! -f "$ZIP_ARCHIVE_PATH_NAME" ]; then
+          echo "ERREUR : Archive de sauvegarde manquante: $ZIP_ARCHIVE_PATH_NAME"
+          exit 1
+        fi
+
+        echo "Recherche de fichiers JSON de brouillon dans l'archive ZIP..."  
+
+        CATALOG=$(echo "$CATALOGUE_ESPACE_NAME_SOURCE" | sed 's/-esp-.*//') 
+
+        INTERNAL_PATH="${PROVIDER_ORG}/catalogs/${CATALOG}/spaces/${CATALOGUE_ESPACE_NAME_SOURCE}/products/"
+
+        FILES_IN_PRODUCTS=$(unzip -Z1 "$ZIP_ARCHIVE_PATH_NAME" "$INTERNAL_PATH*" | grep -E "\.yaml$|\.json$" || true)
+
+        if [[ -z "$FILES_IN_PRODUCTS" ]]; then
+            echo "Arrêt: Il n'y a pas des produts dans $INTERNAL_PATH"
+            exit 1
+        fi
+
+        COUNT_PRODS=$(echo "$FILES_IN_PRODUCTS" | grep -c '.*')
+        echo "Total produits: $COUNT_PRODS"
+
+        PRODUCT_FILES=""
+
+        # Détection PRODUIT : présence de "produit"
+        for f in $FILES_IN_PRODUCTS; do
+          CONTENT=$(unzip -p "$ZIP_ARCHIVE_PATH_NAME" "$f" 2>/dev/null || true)
+
+          if echo "$CONTENT" | jq -e '
+              has("product")
+              and (.info.name? != null or .info.title? != null)
+            ' >/dev/null 2>&1; then
+              PRODUCT_FILES+="$f"$'\n'
+          fi
+        done
+
+        if [ -z "$PRODUCT_FILES" ]; then
+          echo "Aucun brouillon PRODUIT détecté dans l'archive."
+          exit 1
+        fi
+
+        echo "================================"
+        echo "Fichiers PRODUIT détectés:"
+        echo "$PRODUCT_FILES"
+        echo "================================"
+
+
+        # Créer un répertoire physique sur le disque de l'agent
+        EXTRACT_DIR=$(mktemp -d -p "$(Agent.TempDirectory)" restore_XXXXXXXX)
+        mkdir -p "$EXTRACT_DIR"
+
+        # Décompresser tout depuis ce path interne spécifique dans le répertoire
+        # -j: junk paths (empêche la création de dossiers imbriqués, place tous les fichiers dans $EXTRACT_DIR)
+        unzip -j "$ZIP_ARCHIVE_PATH_NAME" "$INTERNAL_PATH*" -d "$EXTRACT_DIR"
+
+        # Se déplacer dans le répertoire temporaire unique. Cela est nécessaire car la commande utilise le nom de fichier relatif.
+        pushd "$EXTRACT_DIR" > /dev/null
+
+        # --- BOUCLE DE RESTAURATION UTILISANT LA LISTE FILTRÉE ---
+        while IFS= read -r product_path; do
+          # Skip empty lines
+          [ -z "$product_path" ] && continue
+
+          # Obtenir uniquement le nom de fichier depuis le path. Cela est nécessaire car unzip -j a supprimé les dossiers internes.
+          FILE_NAME=$(basename "$product_path")
+          
+          # Définir le path absolu vers le fichier physique dans l'espace de travail unique
+          FULL_PATH_FILE="${EXTRACT_DIR}/${FILE_NAME}"
+
+          echo "--------------------------------------------------"
+          echo "En cours de traitement: $FILE_NAME"
+
+          CATALOG_TARGET=$(echo "$CATALOGUE_ESPACE_NAME_TARGET" | sed 's/-esp-.*//')
+          SPACE_TARGET="$CATALOGUE_ESPACE_NAME_TARGET"
+
+          # Exécuter la commande de publication en utilisant le fichier physique
+          apic products:publish \
+            --scope space \
+            --catalog "${CATALOG_TARGET}" \
+            --space "${SPACE_TARGET}" "${FILE_NAME}" \
+            --server "${APIC_PLATFORM_ENDPOINT}" \
+            --org "${PROVIDER_ORG_RESTORE}"
+
+          if [ $? -eq 0 ]; then
+            echo "SUCCÈS: $FILE_NAME published."
+          else
+            echo "ERREUR: Publication échouée: $FILE_NAME."
+            exit 1
+          fi
+
+        done <<< "$PRODUCT_FILES"
+
+        # Retour au répertoire d'origine
+        popd > /dev/null
+
+        if [ -d "$EXTRACT_DIR" ]; then
+          echo "Nettoyage de l'espace de travail..."
+          rm -rf "$EXTRACT_DIR"
+        fi  
+        
+      failOnStderr: true
+    env:
+      APIC_PLATFORM_ENDPOINT: ${{ parameters['CICD_APIC_MANAGER_URL'] }}
+      PROVIDER_ORG: ${{ parameters['CICD_APIC_RESSOURCE_ORGANIZATION_NAME'] }}
+      PROVIDER_ORG_RESTORE: ${{ parameters['CICD_APIC_RESSOURCE_ORGANIZATION_NAME_TARGET'] }}
+      CATALOGUE_ESPACE_NAME_SOURCE: ${{ parameters['CICD_APIC_CATALOGUE_ESPACE_NAME_SOURCE'] }}
+      CATALOGUE_ESPACE_NAME_TARGET: ${{ parameters['CICD_APIC_CATALOGUE_ESPACE_NAME_TARGET'] }}

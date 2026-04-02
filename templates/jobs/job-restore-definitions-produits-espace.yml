@@ -1,0 +1,61 @@
+# File: job-restore-definitions-produits-espace.yml
+# Job: Ce job restaure les definitions des produits dans un espace determiné à partir d'un backup
+# Help: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/phases?view=azure-devops&tabs=yaml
+
+parameters:
+  # URL de la composante API Connect Manager
+  - name: CICD_APIC_MANAGER_URL
+    type: string
+  # Clé API de IBM IAM APIC
+  - name: CICD_APIC_IAM_APIKEY
+    type: string
+  # Nom de la ressource type Organisation pour source du backup
+  - name: CICD_APIC_RESSOURCE_ORGANIZATION_NAME
+    type: string
+  # Numero de build de la pipeline avec l'artifact backup
+  - name: CICD_APIC_DEFINITION_ID
+    type: string
+    # Nom de l'espace source
+  - name: CICD_APIC_CATALOGUE_ESPACE_NAME_SOURCE
+    type: string
+  # Nom de l'organisation cible où la restauration est effectuée
+  - name: CICD_APIC_RESSOURCE_ORGANIZATION_NAME_TARGET
+    type: string
+    default: 'org-ministere-acme-restore'
+  # Nom de l'espace cible
+  - name: CICD_APIC_CATALOGUE_ESPACE_NAME_TARGET 
+    type: string
+
+jobs:
+  - job: RestoreProductsInSpaces
+    displayName: "Restauration des produits dans un espace"
+    workspace:
+      clean: all
+    steps:
+      - checkout: none
+      - template: /templates/tasks/task-apic-configure.yml
+      - template: /templates/tasks/task-apic-login.yml
+        parameters:
+          CICD_APIC_MANAGER_URL: ${{ parameters['CICD_APIC_MANAGER_URL'] }}
+          CICD_APIC_IAM_APIKEY: ${{ parameters['CICD_APIC_IAM_APIKEY'] }}
+      - template: /templates/tasks/task-apic-verify-espace.yml
+        parameters:
+          CICD_APIC_MANAGER_URL: ${{ parameters['CICD_APIC_MANAGER_URL'] }}
+          CICD_APIC_RESSOURCE_ORGANIZATION_NAME_TARGET: ${{ parameters['CICD_APIC_RESSOURCE_ORGANIZATION_NAME_TARGET'] }}
+          CICD_APIC_CATALOGUE_ESPACE_NAME_TARGET: ${{ parameters['CICD_APIC_CATALOGUE_ESPACE_NAME_TARGET'] }}
+      - template: /templates/tasks/task-download-pipeline-artifact.yml
+        parameters:
+          CICD_APIC_DEFINITION_ID: ${{ parameters['CICD_APIC_DEFINITION_ID'] }}
+      - template: /templates/tasks/task-apic-read-backup-json.yml
+        parameters:
+          CICD_APIC_RESSOURCE_ORGANIZATION_NAME: ${{ parameters['CICD_APIC_RESSOURCE_ORGANIZATION_NAME'] }}
+      - template: /templates/tasks/task-apic-restore-catalogues-espaces-products.yml
+        parameters:
+          CICD_APIC_MANAGER_URL: ${{ parameters['CICD_APIC_MANAGER_URL'] }}
+          CICD_APIC_RESSOURCE_ORGANIZATION_NAME: ${{ parameters['CICD_APIC_RESSOURCE_ORGANIZATION_NAME'] }}
+          CICD_APIC_RESSOURCE_ORGANIZATION_NAME_TARGET: ${{ parameters['CICD_APIC_RESSOURCE_ORGANIZATION_NAME_TARGET'] }}
+          CICD_APIC_CATALOGUE_ESPACE_NAME_SOURCE: ${{ parameters['CICD_APIC_CATALOGUE_ESPACE_NAME_SOURCE'] }}
+          CICD_APIC_CATALOGUE_ESPACE_NAME_TARGET: ${{ parameters['CICD_APIC_CATALOGUE_ESPACE_NAME_TARGET'] }}
+      - template: /templates/tasks/task-apic-logout.yml
+        parameters:
+          CICD_APIC_MANAGER_URL: ${{ parameters['CICD_APIC_MANAGER_URL'] }}

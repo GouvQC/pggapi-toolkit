@@ -1,0 +1,60 @@
+# File: pipeline-restore-definitions-produits-espace.yml
+# Pipeline: Ce pipeline fait la restauration des produits dans un espace à partir d'un fichier d'archive
+# Help: https://learn.microsoft.com/en-us/azure/devops/pipelines/get-started/key-pipelines-concepts?view=azure-devops
+
+# Set triggers
+trigger: none
+
+# Set parameters
+# https://learn.microsoft.com/en-us/azure/devops/pipelines/process/runtime-parameters?view=azure-devops&tabs=script
+parameters:
+  # Nom de la ressource type Organisation pour créer un backup
+  - name: CICD_APIC_RESSOURCE_ORGANIZATION_NAME
+    type: string
+    default: 'org-ministere-acme'
+  # Nom du pool
+  - name: CICD_POOL_NAME
+    type: string
+    default: 'Default'
+  # Numéro de build où se trouvent les fichiers json qui seront utilisés pour la restauration
+  - name: CICD_APIC_DEFINITION_ID
+    type: string
+  # Nom de l'espace source
+  - name: CICD_APIC_CATALOGUE_ESPACE_NAME_SOURCE
+    type: string
+  # Nom de l'organisation cible où la restauration est effectuée
+  - name: CICD_APIC_RESSOURCE_ORGANIZATION_NAME_TARGET
+    type: string
+    default: 'org-ministere-acme-restore'
+    # Nom du groupe de variables pour garder le secret APIC_IAM_APIKEY de l'organisation cible pour ce pipeline
+  - name: CICD_SECRETS_APIC_IAM_APIKEY
+    type: string
+    default: 'org-ministere-acme-restore-acg-admin'
+  # Nom de l'espace cible
+  - name: CICD_APIC_CATALOGUE_ESPACE_NAME_TARGET 
+    type: string
+
+# Set variables
+# https://learn.microsoft.com/en-us/azure/devops/pipelines/process/variables?view=azure-devops&tabs=yaml%2Cbatch
+variables:
+  - name: APIC_MANAGER_URL
+    value: "https://api.4ef0-67e5d910.ca-tor.ri.apiconnect.cloud.ibm.com"
+  # Nom du groupe de variables pour garder les secrets cible pour ce pipeline
+  - group: ${{ parameters['CICD_SECRETS_APIC_IAM_APIKEY'] }}
+
+# Set stages
+# https://learn.microsoft.com/en-us/azure/devops/pipelines/process/phases?view=azure-devops&tabs=yaml#workspace
+stages:
+  - stage: "CD_RestoreProduct"
+    displayName: "Restauration de definitions des produits dans les catalogues et espaces"
+    pool: ${{ parameters['CICD_POOL_NAME'] }}
+    jobs:
+      - template: /templates/jobs/job-restore-definitions-produits-espace.yml
+        parameters:
+          CICD_APIC_MANAGER_URL: ${{ variables['APIC_MANAGER_URL'] }}
+          CICD_APIC_IAM_APIKEY: $(APIC_IAM_APIKEY)
+          CICD_APIC_RESSOURCE_ORGANIZATION_NAME: ${{ parameters['CICD_APIC_RESSOURCE_ORGANIZATION_NAME'] }}
+          CICD_APIC_DEFINITION_ID: ${{ parameters['CICD_APIC_DEFINITION_ID'] }}
+          CICD_APIC_CATALOGUE_ESPACE_NAME_SOURCE: ${{ parameters['CICD_APIC_CATALOGUE_ESPACE_NAME_SOURCE'] }}
+          CICD_APIC_RESSOURCE_ORGANIZATION_NAME_TARGET: ${{ parameters['CICD_APIC_RESSOURCE_ORGANIZATION_NAME_TARGET'] }}
+          CICD_APIC_CATALOGUE_ESPACE_NAME_TARGET: ${{ parameters['CICD_APIC_CATALOGUE_ESPACE_NAME_TARGET'] }}

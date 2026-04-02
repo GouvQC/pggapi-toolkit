@@ -1,0 +1,51 @@
+# File: task-apic-read-backup-json.yml
+# Task: Cette tâche lit le fichier json produit par le pipeline de backup et qui sera utilisé dans la restauration
+
+parameters:
+  # Nom de la ressource type Organisation
+  - name: CICD_APIC_RESSOURCE_ORGANIZATION_NAME
+    type: string
+
+steps:
+  - task: Bash@3
+    displayName: 'Read backup json file'
+    inputs:
+      targetType: 'inline'
+      script: |
+        # Read backup json file
+        echo "================================"
+        echo "Read backup json file" 
+        echo "================================"
+        
+        ZIP_ARCHIVE_PATH_NAME=$(Build.ArtifactStagingDirectory)/backup-organization-${PROVIDER_ORG}.zip
+        echo "    - ZIP_ARCHIVE_PATH_NAME: ${ZIP_ARCHIVE_PATH_NAME}"
+
+        echo "Contenu de $(Build.ArtifactStagingDirectory) :"
+        ls -R "$(Build.ArtifactStagingDirectory)"
+
+        if [ ! -f "$ZIP_ARCHIVE_PATH_NAME" ]; then
+          echo "    - Backup archive missing : $ZIP_ARCHIVE_PATH_NAME"
+          exit 1
+        fi
+        
+        # Read first found json file
+        FIRST_JSON=$(unzip -Z1 "$ZIP_ARCHIVE_PATH_NAME" | grep -E '\.json$' | head -n 1)
+        echo "    - JSON file found on : $FIRST_JSON"
+        echo "    - JSON file full path on : $FIRST_JSON"
+        
+        if [ -z "$FIRST_JSON" ]; then
+          echo "    - No JSON file found on : \"$ZIP_ARCHIVE_PATH_NAME\" \"$FIRST_JSON\""
+          exit 1
+        fi
+
+        # Load JSON data in a variable
+        CONTENT=$(unzip -p "$ZIP_ARCHIVE_PATH_NAME" "$FIRST_JSON" || true)
+
+        if [ -z "$CONTENT" ]; then
+          echo "    - Empty content "
+          exit 1
+        fi
+
+      failOnStderr: true
+    env:
+      PROVIDER_ORG: ${{ parameters['CICD_APIC_RESSOURCE_ORGANIZATION_NAME'] }}

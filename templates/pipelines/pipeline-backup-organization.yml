@@ -1,0 +1,45 @@
+# File: pipeline-backup-organization.yml
+# Pipeline: Ce pipeline sauvegarde les ressources et les configurations APIC pour une organisation
+# Help: https://learn.microsoft.com/en-us/azure/devops/pipelines/get-started/key-pipelines-concepts?view=azure-devops
+
+# Set triggers
+trigger: none
+
+# Set parameters
+# https://learn.microsoft.com/en-us/azure/devops/pipelines/process/runtime-parameters?view=azure-devops&tabs=script
+parameters:
+  # Nom de la ressource type Organisation pour créer un backup
+  - name: CICD_APIC_RESSOURCE_ORGANIZATION_NAME
+    type: string
+    default: 'org-ministere-acme'
+  # Nom du groupe de variables pour garder le secret APIC_IAM_APIKEY cible pour ce pipeline
+  - name: CICD_SECRETS_APIC_IAM_APIKEY
+    type: string
+    default: 'org-ministere-acme-acg-admin'
+  # Nom du pool
+  - name: CICD_POOL_NAME
+    type: string
+    default: 'Default'
+
+# Set variables
+# https://learn.microsoft.com/en-us/azure/devops/pipelines/process/variables?view=azure-devops&tabs=yaml%2Cbatch
+variables:
+  - name: APIC_MANAGER_URL
+    value: "https://api.4ef0-67e5d910.ca-tor.ri.apiconnect.cloud.ibm.com"
+  # Nom du groupe de variables pour garder les secrets cible pour ce pipeline
+  - group: ${{ parameters['CICD_SECRETS_APIC_IAM_APIKEY'] }}
+# - name: APIC_IAM_APIKEY
+#   value: "*****"
+
+# Set stages
+# https://learn.microsoft.com/en-us/azure/devops/pipelines/process/phases?view=azure-devops&tabs=yaml#workspace
+stages:
+  - stage: "CD_BackupOrganization"
+    displayName: "Backup de l'organisation"
+    pool: ${{ parameters['CICD_POOL_NAME'] }}
+    jobs:
+      - template: /templates/jobs/job-backup-organization.yml
+        parameters:
+          CICD_APIC_MANAGER_URL: ${{ variables['APIC_MANAGER_URL'] }}
+          CICD_APIC_IAM_APIKEY: $(APIC_IAM_APIKEY)
+          CICD_APIC_RESSOURCE_ORGANIZATION_NAME: ${{ parameters['CICD_APIC_RESSOURCE_ORGANIZATION_NAME'] }}

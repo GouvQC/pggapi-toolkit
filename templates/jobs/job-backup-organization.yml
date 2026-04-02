@@ -1,0 +1,52 @@
+# File: job-backup-organization.yml
+# Job: Cette tâche sauvegarde une organisation productrice, les catalogues et les ressources liés
+# Help: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/phases?view=azure-devops&tabs=yaml
+
+parameters:
+  # URL de la composante API Connect Manager
+  - name: CICD_APIC_MANAGER_URL
+    type: string
+  # Clé API de IBM IAM APIC
+  - name: CICD_APIC_IAM_APIKEY
+    type: string
+  # Nom de la ressource type Organisation pour créer un backup
+  - name: CICD_APIC_RESSOURCE_ORGANIZATION_NAME
+    type: string
+
+jobs:
+  - job: BackupOrganizationJob
+    displayName: "Sauvegarde (backup) de l'organisation et les ressources liés"
+    workspace:
+      clean: all
+    steps:
+      - checkout: none
+      - template: /templates/tasks/task-apic-configure.yml
+      - template: /templates/tasks/task-apic-login.yml
+        parameters:
+          CICD_APIC_MANAGER_URL: ${{ parameters['CICD_APIC_MANAGER_URL'] }}
+          CICD_APIC_IAM_APIKEY: ${{ parameters['CICD_APIC_IAM_APIKEY'] }}
+      - template: /templates/tasks/task-apic-backup-provider-org.yml
+        parameters:
+          CICD_APIC_MANAGER_URL: ${{ parameters['CICD_APIC_MANAGER_URL'] }}
+          CICD_APIC_RESSOURCE_ORGANIZATION_NAME: ${{ parameters['CICD_APIC_RESSOURCE_ORGANIZATION_NAME'] }}
+      - template: /templates/tasks/task-apic-backup-consumer-org.yml
+        parameters:
+          CICD_APIC_MANAGER_URL: ${{ parameters['CICD_APIC_MANAGER_URL'] }}
+          CICD_APIC_RESSOURCE_ORGANIZATION_NAME: ${{ parameters['CICD_APIC_RESSOURCE_ORGANIZATION_NAME'] }}
+      - template: /templates/tasks/task-apic-backup-user-registries.yml
+        parameters:
+          CICD_APIC_MANAGER_URL: ${{ parameters['CICD_APIC_MANAGER_URL'] }}
+          CICD_APIC_RESSOURCE_ORGANIZATION_NAME: ${{ parameters['CICD_APIC_RESSOURCE_ORGANIZATION_NAME'] }}
+      - template: /templates/tasks/task-archive-files.yml
+        parameters:
+          CICD_APIC_RESSOURCE_ORGANIZATION_NAME: ${{ parameters['CICD_APIC_RESSOURCE_ORGANIZATION_NAME'] }}
+      - task: PublishBuildArtifacts@1
+        displayName: "Publication de l'artefact de backup"
+        condition: succeededOrFailed()
+        inputs:
+          PathtoPublish: $(Build.ArtifactStagingDirectory)
+          ArtifactName: 'drop'
+          publishLocation: 'Container'
+      - template: /templates/tasks/task-apic-logout.yml
+        parameters:
+          CICD_APIC_MANAGER_URL: ${{ parameters['CICD_APIC_MANAGER_URL'] }}

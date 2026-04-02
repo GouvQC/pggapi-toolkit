@@ -1,0 +1,96 @@
+# File: task-apic-restore-api.yml
+# Task: Cette tâche restaure les définitions d'api à partir d'une source de sauvegarde d'une organisation
+
+parameters:
+  # URL de la composante API Connect Manager
+  - name: CICD_APIC_MANAGER_URL
+    type: string
+  # Nom de la ressource type Organisation
+  - name: CICD_APIC_RESSOURCE_ORGANIZATION_NAME
+    type: string
+  # Nom de l'organisation cible ou la restauration ce fait
+  - name: CICD_APIC_RESSOURCE_ORGANIZATION_NAME_TARGET
+    type: string
+    default: 'org-ministere-acme-restore'
+
+steps:
+  - task: Bash@3
+    displayName: 'Restore API list'
+    inputs:
+      targetType: 'inline'
+      script: |
+        echo "================================"
+        echo "RESTORE API LIST"
+        echo "================================"
+
+        ZIP_ARCHIVE_PATH_NAME="$(Build.ArtifactStagingDirectory)/backup-organization-${PROVIDER_ORG}.zip"
+        echo "ZIP archive: $ZIP_ARCHIVE_PATH_NAME"
+
+        if [ ! -f "$ZIP_ARCHIVE_PATH_NAME" ]; then
+          echo "ERROR: Backup archive missing: $ZIP_ARCHIVE_PATH_NAME"
+          exit 1
+        fi
+
+        echo "Scanning ZIP for draft API JSON files..."
+
+        # Liste tous les fichiers JSON sous drafts/
+        DRAFT_FILES=$(unzip -Z1 "$ZIP_ARCHIVE_PATH_NAME" | grep -E '(^|.*/)drafts/.*\.json$' || true)
+
+        if [ -z "$DRAFT_FILES" ]; then
+          echo "No draft JSON files found in archive."
+          exit 1
+        fi
+
+        API_FILES=""
+
+        # Détection API simple : présence de swagger/openapi + x-ibm-name + version
+        for f in $DRAFT_FILES; do
+          CONTENT=$(unzip -p "$ZIP_ARCHIVE_PATH_NAME" "$f" 2>/dev/null || true)
+
+          if echo "$CONTENT" | jq -e '
+              (has("swagger") or has("openapi"))
+              and (.info["x-ibm-name"]? != null)
+              and (.info.version? != null)
+            ' >/dev/null 2>&1; then
+              API_FILES+="$f"$'\n'
+          fi
+        done
+
+        if [ -z "$API_FILES" ]; then
+          echo "No API drafts detected in archive."
+          exit 1
+        fi
+
+        echo "================================"
+        echo "API files detected:"
+        echo "$API_FILES"
+        echo "================================"
+
+        echo "Restoring APIs into provider org: ${PROVIDER_ORG_RESTORE}"
+        echo
+
+        # Import des APIs
+        while IFS= read -r api_path; do
+          [ -z "$api_path" ] && continue
+
+          echo "--------------------------------------------"
+          echo "Restoring API: $(basename "$api_path")"
+          echo "--------------------------------------------"
+
+          TMP_JSON=$(mktemp -t apic-restore-XXXXXX.json)
+          unzip -p "$ZIP_ARCHIVE_PATH_NAME" "$api_path" > "$TMP_JSON"
+
+          apic draft-apis:create "$TMP_JSON" \
+            --server "$APIC_PLATFORM_ENDPOINT" \
+            --org "$PROVIDER_ORG_RESTORE"
+
+          echo "OK: API restored from $api_path"
+          echo
+        done <<< "$API_FILES"
+
+
+      failOnStderr: true
+    env:
+      APIC_PLATFORM_ENDPOINT: ${{ parameters['CICD_APIC_MANAGER_URL'] }}
+      PROVIDER_ORG: ${{ parameters['CICD_APIC_RESSOURCE_ORGANIZATION_NAME'] }}
+      PROVIDER_ORG_RESTORE: ${{ parameters['CICD_APIC_RESSOURCE_ORGANIZATION_NAME_TARGET'] }}

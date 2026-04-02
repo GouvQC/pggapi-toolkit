@@ -1,0 +1,19 @@
+# File: task-download-pipeline-artifact.yml
+# Task: Cette tâche lit le fichier json produit par la pipeline de backup et qui sera utilisé dans la restauration
+
+parameters:
+  # Numero de build de la pipeline avec l'artifact backup
+  - name: CICD_APIC_DEFINITION_ID
+    type: string
+
+steps:
+  - task: DownloadPipelineArtifact@2
+    displayName: 'Lecture du fichier d''archive JSON depuis la pipeline'
+    inputs:
+      buildType: 'specific'
+      project: 'PGGAPI' 
+      #ID de la pipeline source
+      definition: ${{ parameters['CICD_APIC_DEFINITION_ID'] }}
+      buildVersionToDownload: 'latest'
+      artifactName: 'drop'
+      targetPath: '$(Build.ArtifactStagingDirectory)'
