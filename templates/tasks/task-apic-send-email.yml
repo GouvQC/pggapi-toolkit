@@ -1,0 +1,132 @@
+# File: task-apic-send-email.yml
+# Task: Envoi les courriels préparés par une task qui génère la liste des courriels à envoyer (ex. task-apic-credentials-reminder-prepare-email.yml)
+#
+# Utilise curl (protocole SMTP natif) pour l'envoi via AWS SES.
+# Configuration du serveur (smtp_server, smtp_port, mail_from) provient de templates/variables/smtp-config.yml.
+
+parameters:
+  # Utilisateur SMTP
+  - name: CICD_SMTP_USERNAME
+    type: string
+  # Mot de passe SMTP
+  - name: CICD_SMTP_PASSWORD
+    type: string
+  # Identifiant utilisé pour nommer le fichier de trace
+  - name: CICD_FAILED_FILE_NAME
+    type: string
+
+steps:
+  - task: Bash@3
+    displayName: "Envoyer les courriels"
+
+    inputs:
+      targetType: inline
+
+      script: |
+        #!/usr/bin/env bash
+        set -euo pipefail
+
+        INPUT_FILE="$(EmailsToSendFile)"
+        SMTP_SERVER="$(smtp_server)"
+        SMTP_PORT="$(smtp_port)"
+        FROM="$(mail_from)"
+        SMTP_USERNAME="${SMTP_USERNAME}"
+        SMTP_PASSWORD="${SMTP_PASSWORD}"
+        FAILED_FILE_NAME="${FAILED_FILE_NAME}"
+        OUTPUT_DIR="${OUTPUT_DIR}"
+        mkdir -p "${OUTPUT_DIR}"
+
+        FAILED_FILE="${OUTPUT_DIR}/failed-emails.txt"
+        : > "${FAILED_FILE}"
+
+        if [[ ! -s "${INPUT_FILE}" ]]; then
+          echo "Aucun courriel à envoyer (fichier vide ou introuvable : ${INPUT_FILE})"
+          exit 0
+        fi
+
+        TOTAL=$(jq 'length' "${INPUT_FILE}")
+        echo "Nombre de courriels à envoyer : ${TOTAL}"
+
+        # Compteur pour générer un nom de fichier unique par courriel (un même destinataire peut en recevoir plusieurs)
+        COUNTER=0
+
+        jq -c '.[]' "${INPUT_FILE}" | while read -r ITEM; do
+
+          COUNTER=$((COUNTER + 1))
+
+          TO=$(echo "${ITEM}" | jq -r '.to')
+          SUBJECT=$(echo "${ITEM}" | jq -r '.subject')
+          BODY=$(echo "${ITEM}" | jq -r '.body')
+
+          if [[ -z "${TO}" || "${TO}" == "null" ]]; then
+            echo "WARNING: Destinataire manquant, courriel ignoré"
+            echo "(destinataire manquant)" >> "${FAILED_FILE}"
+            continue
+          fi
+
+          MAIL_FILE="${OUTPUT_DIR}/mail-${COUNTER}.txt"
+
+          {
+            echo "From: ${FROM}"
+            echo "To: ${TO}"
+            echo "Subject: ${SUBJECT}"
+            echo "Content-Type: text/html; charset=UTF-8"
+            echo ""
+            echo "${BODY}"
+          } > "${MAIL_FILE}"
+
+          if curl --url "smtps://${SMTP_SERVER}:${SMTP_PORT}" \
+               --user "${SMTP_USERNAME}:${SMTP_PASSWORD}" \
+               --mail-from "${FROM}" \
+               --mail-rcpt "${TO}" \
+               --upload-file "${MAIL_FILE}"; then
+
+            echo "Courriel envoyé à ${TO}"
+
+          else
+
+            echo "WARNING: Erreur d'envoi vers ${TO}"
+            echo "${TO}" >> "${FAILED_FILE}"
+
+          fi
+
+          rm -f "${MAIL_FILE}"
+
+        done
+
+        echo ""
+        echo "Traitement des envois terminé."
+
+        FAILED_COUNT=$(wc -l < "${FAILED_FILE}" | tr -d ' ')
+
+        echo ""
+        echo "=================================================="
+        echo "Rapport d'envoi"
+        echo "=================================================="
+
+        if [[ "${FAILED_COUNT}" -eq 0 ]]; then
+          echo "Tous les courriels ont été envoyés avec succès."
+        else
+          echo "${FAILED_COUNT} courriel(s) en erreur :"
+          cat "${FAILED_FILE}"
+
+          while read -r FAILED_EMAIL; do
+            echo "##vso[task.logissue type=warning]Échec d'envoi du courriel à : ${FAILED_EMAIL}"
+          done < "${FAILED_FILE}"
+
+          # -- Copie pour la trace publiée (uniquement s'il y a des échecs) --
+          TRACE_DIR="${OUTPUT_DIR}/trace"
+          mkdir -p "${TRACE_DIR}"
+          cp "${FAILED_FILE}" "${TRACE_DIR}/${FAILED_FILE_NAME}.txt"
+
+          if [[ "${FAILED_COUNT}" -eq "${TOTAL}" ]]; then
+            echo "##vso[task.logissue type=error]Tous les courriels ont échoué."
+            exit 1
+          fi
+        fi
+
+    env:
+      SMTP_USERNAME: ${{ parameters.CICD_SMTP_USERNAME }}
+      SMTP_PASSWORD: ${{ parameters.CICD_SMTP_PASSWORD }}
+      FAILED_FILE_NAME: ${{ parameters.CICD_FAILED_FILE_NAME }}
+      OUTPUT_DIR: $(System.DefaultWorkingDirectory)/apic-send-email

@@ -9,8 +9,18 @@ parameters:
   # Nom de l'environnement Azure DevOps cible pour cette étape (stage)
   - name: CICD_WORKFLOW_ENVIRONMENT_NAME
     type: string
+  # Détermine si les consommateurs doivent être notifiés  
+  - name: CICD_NOTIFIER_NOUVELLE_VERSION_PRODUCT
+    type: boolean
+    default: false
   # Nom du fichier source des variables pour l'environnement Azure DevOps cible pour cette étape (stage)
   - name: CICD_WORKFLOW_ENVIRONMENT_VARIABLES
+    type: string
+  # Utilisateur SMTP
+  - name: CICD_SMTP_USERNAME
+    type: string
+  # Mot de passe SMTP
+  - name: CICD_SMTP_PASSWORD
     type: string
 
 stages:
@@ -35,3 +45,6 @@ stages:
           CICD_APIC_RESSOURCE_ORGANIZATION_NAME: "${{ variables['APIC_RESSOURCE_ORGANIZATION_NAME'] }}"
           CICD_APIC_RESSOURCE_CATALOG_NAME: "${{ variables['APIC_RESSOURCE_CATALOG_NAME'] }}"
           CICD_APIC_RESSOURCE_SPACE_NAME: "${{ variables['APIC_RESSOURCE_SPACE_NAME'] }}"
+          CICD_SMTP_USERNAME: "$(SES_SMTP_USERNAME)"
+          CICD_SMTP_PASSWORD: "$(SES_SMTP_PASSWORD)"
+          CICD_NOTIFIER_NOUVELLE_VERSION_PRODUCT: "${{ parameters['CICD_NOTIFIER_NOUVELLE_VERSION_PRODUCT'] }}"

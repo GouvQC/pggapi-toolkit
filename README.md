@@ -8,6 +8,7 @@ Ce dépôt GIT contient la définition d'API Bonjour Québec, la définition du 
 - [Processus de déploiement d'une définition API et produit](docs/processus-deploy-ci-cd.md)
 - [Importation de la définition d'API Bonjour Québec et de mise en place d'un pipeline de déploiement](docs/configuration-api-definition-pipeline-deploy.md)
 - [Exemple d'utilisation de l'API Bonjour Québec](docs/exemple-utilisation-api.md)
+- [Configuration SMTP](docs/configuration-smtp.md)
 
 # Version supportée et dépendances pour le fonctionnement des pipelines
 

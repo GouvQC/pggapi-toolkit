@@ -1,0 +1,11 @@
+# File: smtp-config.yml
+# Variables: Configuration du serveur SMTP pour l'envoi des notifications
+
+variables:
+
+  - name: smtp_server
+    value: "email-smtp.ca-xxxxxx-1.xxxxxx.com"
+  - name: smtp_port
+    value: "465"
+  - name: mail_from
+    value: "nepasrepondre@api.gouv.qc.ca"

@@ -1,4 +1,4 @@
-# File: job-deploy-project-definitions.yml
+# File: job-cd-deploy-project-definitions.yml
 # Job: Cette tâche déploie l'artefact des définitions d'API et de Produit
 # Help: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/phases?view=azure-devops&tabs=yaml
 
@@ -42,6 +42,16 @@ parameters:
   # Nom de la ressource type Espace pour récupèrer les objets
   - name: CICD_APIC_RESSOURCE_SPACE_NAME
     type: string
+  # Détermine si les consommateurs doivent être notifiés  
+  - name: CICD_NOTIFIER_NOUVELLE_VERSION_PRODUCT
+    type: boolean
+    default: false
+  # Utilisateur SMTP
+  - name: CICD_SMTP_USERNAME
+    type: string
+  # Mot de passe SMTP
+  - name: CICD_SMTP_PASSWORD
+    type: string
 
 jobs:
   - deployment: DeployProjectDefinitions_${{ parameters['CICD_WORKFLOW_ENVIRONMENT_ID'] }}
@@ -53,6 +63,7 @@ jobs:
       runOnce:
         deploy:
           steps:
+            - checkout: templates-pggapi
             - template: /templates/tasks/task-tool-read-semver.yml
               parameters:
                 CICD_READ_SEM_FILE: ${{ parameters['CICD_WORK_DEF_API_FILE'] }}
@@ -122,6 +133,33 @@ jobs:
                 CICD_WORK_DATA_PRODUCT_FILE: ${{ parameters['CICD_WORK_DEF_PRODUCT_FILE'] }}
                 CICD_WORK_DATA_PRODUCT_SEMVER: "$(CICD_WORK_READ_PRODUCT_SEMVER)"
                 CICD_WORK_DATA_PRODUCT_SEMVER_MAJOR: "$(CICD_WORK_READ_PRODUCT_SEMVER_MAJOR)"
+            # ===== Notification nouvel version de Product =====
+            - ${{ if eq(parameters.CICD_NOTIFIER_NOUVELLE_VERSION_PRODUCT, true) }}:
+              - template: /templates/tasks/task-apic-notification-nouvelle-version-product-generation.yml
+                parameters:
+                  CICD_APIC_MANAGER_URL: ${{ parameters['CICD_APIC_MANAGER_URL'] }}
+                  CICD_APIC_RESSOURCE_ORGANIZATION_NAME: ${{ parameters['CICD_APIC_RESSOURCE_ORGANIZATION_NAME'] }}
+                  CICD_APIC_RESSOURCE_CATALOG_NAME: ${{ parameters['CICD_APIC_RESSOURCE_CATALOG_NAME'] }}
+                  CICD_PRODUCT_NAME: "$(CICD_WORK_READ_PRODUCT_NAME)"           
+              - template: /templates/tasks/task-apic-notification-nouvelle-version-product-courriel-message.yml
+                parameters:
+                  CICD_TEMPLATE_PATH: "$(System.DefaultWorkingDirectory)/templates/email-templates/apic-product-version-notification.yaml"
+                  CICD_APIC_RESSOURCE_CATALOG_NAME: ${{ parameters['CICD_APIC_RESSOURCE_CATALOG_NAME'] }}
+                  CICD_PRODUCT_NAME: "$(CICD_WORK_READ_PRODUCT_NAME)"
+                  CICD_PRODUCT_VERSION: "$(CICD_WORK_READ_PRODUCT_SEMVER)"
+              - template: /templates/tasks/task-apic-send-email.yml
+                parameters:
+                  CICD_SMTP_USERNAME: ${{ parameters['CICD_SMTP_USERNAME'] }}
+                  CICD_SMTP_PASSWORD: ${{ parameters['CICD_SMTP_PASSWORD'] }}
+                  CICD_FAILED_FILE_NAME: "failed-emails-produit"
+              - task: PublishBuildArtifacts@1
+                displayName: "Publication de l'artefact"
+                condition: succeededOrFailed()
+                inputs:
+                  PathtoPublish: '$(System.DefaultWorkingDirectory)/apic-send-email/trace'
+                  ArtifactName: 'drop'
+                  publishLocation: 'Container'
+              # =======================================================
             - template: /templates/tasks/task-apic-logout.yml
               parameters:
                 CICD_APIC_MANAGER_URL: ${{ parameters['CICD_APIC_MANAGER_URL'] }}
