@@ -1,0 +1,37 @@
+subject: "Nouvelle version disponible - {{PRODUCT_NAME}}"
+body: |
+  <html>
+  <body style="font-family: Calibri, Arial, sans-serif; font-size: 14px;">
+
+  <p>Bonjour,</p>
+
+  <p>
+  Une nouvelle version du produit API
+  <strong>{{PRODUCT_NAME}}</strong> a été déployée.
+  </p>
+
+  <ul>
+    <li>Produit : <strong>{{PRODUCT_NAME}}</strong></li>
+    <li>Version : <strong>{{PRODUCT_VERSION}}</strong></li>
+    <li>Catalogue : <strong>{{CATALOG_NAME}}</strong></li>
+  </ul>
+
+  <p>
+  Nous vous invitons à consulter la documentation et les notes de version.
+  </p>
+
+  <p>
+      Accéder au portail développeur
+  </p>
+
+  <p>
+  Merci,<br/>
+  Équipe API Management
+  </p>
+
+  <p>
+  <em>Ceci est un message automatique. Veuillez ne pas répondre à ce courriel.</em>
+  </p>
+
+  </body>
+  </html>

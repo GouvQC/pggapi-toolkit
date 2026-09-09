@@ -100,6 +100,7 @@ extends:
       - 'op-dev'
       - 'op-acc'
 ```
+  - optionnel : paramètre pour notifier les consomateurs d'une nouvelle vesion du produit [exemples-envoie-de-courriel-nouvelle-version-product.md](../docs/exemples-envoie-de-courriel-nouvelle-version-product.md)
 
 ## Environnements de déploiement dans Azure DevOps
 

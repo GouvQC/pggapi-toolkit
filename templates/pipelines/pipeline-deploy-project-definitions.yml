@@ -16,6 +16,10 @@ parameters:
   - name: CICD_WORK_ENV_PREFIX
     type: string
     default: 'org-acme-env'
+  # Détermine si les consommateurs doivent être notifiés  
+  - name: CICD_NOTIFIER_NOUVELLE_VERSION_PRODUCT
+    type: boolean
+    default: false
   # Nom de l'artefact de pipeline
   - name: CICD_BUILD_ARTIFACT_NAME
     type: string
@@ -44,6 +48,10 @@ variables:
     value: "${{ variables['CICD_WORK_DEF_PREFIX'] }}-*-definition"
   - name: CICD_BUILD_ARTIFACT_NAME
     value: "${{ parameters['CICD_BUILD_ARTIFACT_NAME'] }}"
+  # Nom du groupe de variables pour garder les secrets SMTP
+  - group: acme-ses-smtp
+  # Configuration du serveur SMTP : smtp_server, smtp_port, mail_from
+  - template: /templates/variables/smtp-config.yml
 
 # Set stages
 # https://learn.microsoft.com/en-us/azure/devops/pipelines/process/phases?view=azure-devops&tabs=yaml#workspace
@@ -55,3 +63,6 @@ stages:
         CICD_WORKFLOW_ENVIRONMENT_ID: ${{ upper(replace(CICD_WORK_STAGE, '-', '_')) }}
         CICD_WORKFLOW_ENVIRONMENT_NAME: ${{ variables['CICD_WORK_ENV_PREFIX'] }}-${{ CICD_WORK_STAGE }}
         CICD_WORKFLOW_ENVIRONMENT_VARIABLES: ${{ variables['CICD_WORK_DEF_PREFIX'] }}-variables-env-${{ CICD_WORK_STAGE }}.yml
+        CICD_SMTP_USERNAME: $(SES_SMTP_USERNAME)
+        CICD_SMTP_PASSWORD: $(SES_SMTP_PASSWORD)
+        CICD_NOTIFIER_NOUVELLE_VERSION_PRODUCT: ${{ parameters['CICD_NOTIFIER_NOUVELLE_VERSION_PRODUCT'] }}
