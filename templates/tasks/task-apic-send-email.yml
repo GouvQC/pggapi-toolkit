@@ -1,5 +1,5 @@
 # File: task-apic-send-email.yml
-# Task: Envoi les courriels préparés par une task qui génère la liste des courriels à envoyer (ex. task-apic-credentials-reminder-prepare-email.yml)
+# Task: Envoie les courriels préparés par une task qui génère la liste des courriels à envoyer (ex. task-apic-credentials-reminder-prepare-email.yml)
 #
 # Utilise curl (protocole SMTP natif) pour l'envoi via AWS SES.
 # Configuration du serveur (smtp_server, smtp_port, mail_from) provient de templates/variables/smtp-config.yml.

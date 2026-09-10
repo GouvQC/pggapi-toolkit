@@ -8,4 +8,4 @@ variables:
   - name: smtp_port
     value: "465"
   - name: mail_from
-    value: "nepasrepondre@api.gouv.qc.ca"
+    value: "nepasrepondre@acme.ca"

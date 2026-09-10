@@ -133,7 +133,7 @@ jobs:
                 CICD_WORK_DATA_PRODUCT_FILE: ${{ parameters['CICD_WORK_DEF_PRODUCT_FILE'] }}
                 CICD_WORK_DATA_PRODUCT_SEMVER: "$(CICD_WORK_READ_PRODUCT_SEMVER)"
                 CICD_WORK_DATA_PRODUCT_SEMVER_MAJOR: "$(CICD_WORK_READ_PRODUCT_SEMVER_MAJOR)"
-            # ===== Notification nouvel version de Product =====
+            # ===== Notification nouvelle version de Produit =====
             - ${{ if eq(parameters.CICD_NOTIFIER_NOUVELLE_VERSION_PRODUCT, true) }}:
               - template: /templates/tasks/task-apic-notification-nouvelle-version-product-generation.yml
                 parameters:

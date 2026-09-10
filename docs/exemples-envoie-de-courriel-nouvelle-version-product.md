@@ -16,7 +16,7 @@ qui alimente les paramètres du gabarit du courriel du répertoire /email-templa
 
     task-apic-send-email.yml
 
-qui envoie les courriels préparés a l'étape précédente.
+qui envoie les courriels préparés à l'étape précédente.
 
 # Paramètres à ajouter au pipeline
 
@@ -41,19 +41,19 @@ Résultat :
 - Envoi des courriels.
 - Journalisation des destinataires sélectionnés.
 
-## Notification désactivée (décoché)
+## Notification désactivée (décochée)
 
     CICD_SEND_NOTIFICATION: false
 
 Résultat :
 
-- N'execute aucune des tâches plus haut
+- N'exécute aucune des tâches plus haut
 - Aucune génération de la liste des destinataires.
 - Aucune notification envoyée.
 - Aucun impact sur le déploiement.
 
 # Considérations
 
-- Les destinataires correspondent aux propriétaires des organisations consommatrices ayant au moins une application abonnée au produit peut importe la version.
+- Les destinataires correspondent aux propriétaires des organisations consommatrices ayant au moins une application abonnée au produit, peu importe la version.
 - Les adresses courriel sont dédupliquées avant l'envoi.
-- S'assurer que la [configuration SMTP](../docs/configuration-smtp.md) est fontionnel pour l'envoie des courriels.
+- S'assurer que la [configuration SMTP](../docs/configuration-smtp.md) est fontionnelle pour l'envoie des courriels.
