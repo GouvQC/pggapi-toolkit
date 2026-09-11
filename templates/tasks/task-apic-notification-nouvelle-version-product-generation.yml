@@ -1,0 +1,215 @@
+# File: task-apic-notification-nouvelle-version-product-generation.yml
+# Task: Génère la liste des consommateurs abonnés au Produit pour les informer qu'une nouvelle version du produit est disponible
+
+parameters:
+  # URL de la plateforme API Connect
+  - name: CICD_APIC_MANAGER_URL
+    type: string
+    # Organisation APIC
+  - name: CICD_APIC_RESSOURCE_ORGANIZATION_NAME
+    type: string 
+    # Catalogue APIC
+  - name: CICD_APIC_RESSOURCE_CATALOG_NAME
+    type: string
+    # Nom du Product
+  - name: CICD_PRODUCT_NAME
+    type: string
+
+steps:
+  - task: Bash@3
+    displayName: "Générer la liste des consommateurs abonnés"
+
+    inputs:
+      targetType: inline
+
+      script: |
+        #!/usr/bin/env bash
+
+        set -uo pipefail
+
+        SERVER="${APIC_PLATFORM_ENDPOINT}"
+        ORG="${APIC_ORG}"
+        CATALOG="${APIC_CATALOG}"
+        PRODUCT_NAME="${PRODUCT_NAME}"
+
+        mkdir -p "${OUTPUT_DIR}"
+
+        JSONL_FILE="${OUTPUT_DIR}/subscriber-list.jsonl"
+        FINAL_FILE="${OUTPUT_DIR}/subscriber-list.json"
+
+        rm -f "${JSONL_FILE}" "${FINAL_FILE}"
+        touch "${JSONL_FILE}"
+
+        echo "=================================================="
+        echo "Recherche des consommateurs abonnés au Product"
+        echo "=================================================="
+        echo "Organisation : ${ORG}"
+        echo "Catalogue    : ${CATALOG}"
+        echo "Produit      : ${PRODUCT_NAME}"
+        echo ""
+
+        PRODUCTS_JSON=$(apic products:list \
+          --server "${SERVER}" \
+          --org "${ORG}" \
+          --catalog "${CATALOG}" \
+          --scope catalog \
+          "${PRODUCT_NAME}" \
+          --format json)
+
+        CONSUMER_ORGS_JSON=$(apic consumer-orgs:list \
+          --server "${SERVER}" \
+          --org "${ORG}" \
+          --catalog "${CATALOG}" \
+          --fields name,owner_url \
+          --format json)
+
+        while read -r CONSUMER_ORG
+        do
+          CONSUMER_ORG_NAME=$(echo "${CONSUMER_ORG}" | jq -r '.name')
+          OWNER_URL=$(echo "${CONSUMER_ORG}" | jq -r '.owner_url')
+
+          echo ""
+          echo "Consumer Org : ${CONSUMER_ORG_NAME}"
+
+          APPS_JSON=$(apic apps:list \
+            --server "${SERVER}" \
+            --org "${ORG}" \
+            --catalog "${CATALOG}" \
+            --consumer-org "${CONSUMER_ORG_NAME}" \
+            --fields name \
+            --format json)
+
+          while read -r APP
+          do
+            APP_NAME=$(echo "${APP}" | jq -r '.name')
+
+            echo "  Application : ${APP_NAME}"
+
+            SUBSCRIPTIONS_JSON=$(apic subscriptions:list \
+              --server "${SERVER}" \
+              --org "${ORG}" \
+              --catalog "${CATALOG}" \
+              --consumer-org "${CONSUMER_ORG_NAME}" \
+              --app "${APP_NAME}" \
+              --fields product_url \
+              --format json)
+
+            PRODUCT_FOUND=false
+
+            while read -r SUB
+            do
+              PRODUCT_URL=$(echo "${SUB}" | jq -r '.product_url // empty')
+
+              [[ -z "${PRODUCT_URL}" ]] && continue
+
+              PRODUCT_ID=$(basename "${PRODUCT_URL}")
+
+              REAL_PRODUCT_NAME=$(echo "${PRODUCTS_JSON}" | jq -r \
+                --arg PRODUCT_ID "${PRODUCT_ID}" '
+                  .results[]
+                  | select(.id == $PRODUCT_ID)
+                  | .name
+                ' | head -1)
+
+              echo "    Product ID   : ${PRODUCT_ID}"
+              echo "    Product réel : ${REAL_PRODUCT_NAME}"
+
+              if [[ "${REAL_PRODUCT_NAME}" == "${PRODUCT_NAME}" ]]; then
+                PRODUCT_FOUND=true
+                echo "    -> Product correspondant trouvé"
+                break
+              fi
+
+            done < <(
+              echo "${SUBSCRIPTIONS_JSON}" | jq -c '.results[]?'
+            )
+
+            if [[ "${PRODUCT_FOUND}" != "true" ]]; then
+              continue
+            fi
+
+            #
+            # URL exemple :
+            # /user-registries/{org-id}/{user-registry-id}/users/{user-id}
+            #
+            USER_REGISTRY_ID=$(echo "${OWNER_URL}" \
+              | sed -E 's|.*/user-registries/[^/]*/([^/]*)/users/.*|\1|')
+
+            OWNER_ID=$(echo "${OWNER_URL}" \
+              | awk -F/ '{print $NF}')
+
+            echo "    User Registry : ${USER_REGISTRY_ID}"
+            echo "    Owner Id      : ${OWNER_ID}"
+
+            USER_JSON=$(apic users:get \
+              --server "${SERVER}" \
+              --org "${ORG}" \
+              --user-registry "${USER_REGISTRY_ID}" \
+              --format json \
+              --output - \
+              "${OWNER_ID}" 2>/dev/null || true)
+
+            if ! echo "${USER_JSON}" | jq empty >/dev/null 2>&1; then
+              echo "    Impossible de récupérer le courriel"
+              continue
+            fi
+
+            EMAIL=$(echo "${USER_JSON}" | jq -r '.email // empty')
+
+            if [[ -z "${EMAIL}" ]]; then
+              echo "    Aucun courriel trouvé"
+              continue
+            fi
+
+            echo "    Courriel : ${EMAIL}"
+
+            jq -n \
+              --arg email "${EMAIL}" \
+              --arg consumerOrg "${CONSUMER_ORG_NAME}" \
+              --arg app "${APP_NAME}" \
+              --arg product "${PRODUCT_NAME}" \
+              '{
+                email: $email,
+                consumerOrg: $consumerOrg,
+                app: $app,
+                product: $product
+              }' >> "${JSONL_FILE}"
+
+          done < <(
+            echo "${APPS_JSON}" | jq -c '.results[]?'
+          )
+
+        done < <(
+          echo "${CONSUMER_ORGS_JSON}" | jq -c '.results[]?'
+        )
+
+        if [[ -s "${JSONL_FILE}" ]]; then
+          jq -s 'unique_by(.email)' "${JSONL_FILE}" > "${FINAL_FILE}"
+        else
+          echo "[]" > "${FINAL_FILE}"
+        fi
+
+        echo ""
+        echo "=================================================="
+        echo "RÉSUMÉ"
+        echo "=================================================="
+
+        TOTAL=$(jq 'length' "${FINAL_FILE}")
+
+        echo "Nombre de destinataires : ${TOTAL}"
+
+        if [[ "${TOTAL}" -gt 0 ]]; then
+          jq -r '.[] | .email' "${FINAL_FILE}"
+        fi
+
+        echo ""
+        echo "Fichier généré : ${FINAL_FILE}"
+
+        echo "##vso[task.setvariable variable=SubscriberListFile]${FINAL_FILE}"
+
+    env:
+      APIC_PLATFORM_ENDPOINT: ${{ parameters.CICD_APIC_MANAGER_URL }}
+      APIC_ORG: ${{ parameters.CICD_APIC_RESSOURCE_ORGANIZATION_NAME }}
+      APIC_CATALOG: ${{ parameters.CICD_APIC_RESSOURCE_CATALOG_NAME }}
+      PRODUCT_NAME: ${{ parameters.CICD_PRODUCT_NAME }}
+      OUTPUT_DIR: $(System.DefaultWorkingDirectory)/apic-send-email
