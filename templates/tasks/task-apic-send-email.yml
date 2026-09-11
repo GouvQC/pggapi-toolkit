@@ -35,6 +35,8 @@ steps:
         FAILED_FILE_NAME="${FAILED_FILE_NAME}"
         OUTPUT_DIR="${OUTPUT_DIR}"
         mkdir -p "${OUTPUT_DIR}"
+        TRACE_DIR="${OUTPUT_DIR}/trace"
+        mkdir -p "${TRACE_DIR}"
 
         FAILED_FILE="${OUTPUT_DIR}/failed-emails.txt"
         : > "${FAILED_FILE}"
@@ -115,8 +117,6 @@ steps:
           done < "${FAILED_FILE}"
 
           # -- Copie pour la trace publiée (uniquement s'il y a des échecs) --
-          TRACE_DIR="${OUTPUT_DIR}/trace"
-          mkdir -p "${TRACE_DIR}"
           cp "${FAILED_FILE}" "${TRACE_DIR}/${FAILED_FILE_NAME}.txt"
 
           if [[ "${FAILED_COUNT}" -eq "${TOTAL}" ]]; then
