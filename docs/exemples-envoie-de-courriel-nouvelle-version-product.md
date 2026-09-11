@@ -56,4 +56,4 @@ Résultat :
 
 - Les destinataires correspondent aux propriétaires des organisations consommatrices ayant au moins une application abonnée au produit, peu importe la version.
 - Les adresses courriel sont dédupliquées avant l'envoi.
-- S'assurer que la [configuration SMTP](../docs/configuration-smtp.md) est fontionnelle pour l'envoie des courriels.
+- S'assurer que la [configuration SMTP](../docs/configuration-smtp.md) est fonctionnelle pour l'envoie de courriels.
